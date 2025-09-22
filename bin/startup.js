@@ -14,8 +14,8 @@ const mcpSdkPath = join(nodeModulesPath, '@modelcontextprotocol', 'sdk');
 // Check if MCP SDK is installed
 if (!existsSync(mcpSdkPath)) {
   try {
-    // Install only production dependencies silently
-    execSync('npm install --omit=dev --loglevel=error --no-audit --no-fund', {
+    // Install only production dependencies silently, skip prepare scripts
+    execSync('npm install --omit=dev --ignore-scripts --loglevel=error --no-audit --no-fund', {
       cwd: projectRoot,
       stdio: 'ignore'
     });
