@@ -14,9 +14,9 @@ const nodeModulesPath = join(projectRoot, 'node_modules');
 if (!existsSync(nodeModulesPath)) {
   console.error('[AI-Context MCP] Installing dependencies...');
   try {
-    execSync('npm install --production', {
+    execSync('npm install --omit=dev --silent', {
       cwd: projectRoot,
-      stdio: 'inherit'
+      stdio: ['ignore', 'ignore', 'pipe']
     });
   } catch (error) {
     console.error('[AI-Context MCP] Failed to install dependencies:', error.message);

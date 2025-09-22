@@ -15,7 +15,6 @@
     "test:coverage": "vitest run --coverage",
     "test:watch": "vitest",
     "validate": "tsx src/validate.ts",
-    "prepare": "npm run build",
     "lint": "echo 'No linter configured'",
     "typecheck": "tsc --noEmit"
   },
