@@ -29,12 +29,15 @@ class AiContextMCPServer {
         this.loader = new Loader(this.rootPath, this.agentsMetadata, this.guidelinesMetadata, this.frameworksMetadata);
     }
     findAiContextRoot() {
-        // 1. Check explicit environment variable
+        // 1. Check explicit environment variable (recommended for MCP/Cursor)
         if (process.env.AI_CONTEXT_ROOT) {
             const explicitPath = path.resolve(process.env.AI_CONTEXT_ROOT);
             if (fs.existsSync(explicitPath)) {
                 return explicitPath;
             }
+            // If specified but doesn't exist, provide helpful error
+            throw new Error(`AI_CONTEXT_ROOT was set to '${process.env.AI_CONTEXT_ROOT}' but path does not exist.\n` +
+                `Please check the path and ensure the .ai-context folder exists.`);
         }
         // 2. Check current working directory for .ai-context
         const cwd = process.cwd();
@@ -51,9 +54,23 @@ class AiContextMCPServer {
             }
             currentDir = path.dirname(currentDir);
         }
-        // 4. Error if not found
-        throw new Error('No .ai-context folder found. Please ensure you have a .ai-context folder ' +
-            'in your project root or set AI_CONTEXT_ROOT environment variable.');
+        // 4. Error if not found with helpful message for Cursor users
+        console.error(`[AI-Context MCP] Current working directory: ${cwd}`);
+        console.error(`[AI-Context MCP] No .ai-context folder found in current directory or parent directories.`);
+        throw new Error('No .ai-context folder found.\n\n' +
+            'For Cursor users, add this to your MCP settings:\n' +
+            '{\n' +
+            '  "mcpServers": {\n' +
+            '    "ai-context": {\n' +
+            '      "command": "npx",\n' +
+            '      "args": ["--yes", "github:alonlevyshavit/ai-context-mcp"],\n' +
+            '      "env": {\n' +
+            '        "AI_CONTEXT_ROOT": "/absolute/path/to/your/project/.ai-context"\n' +
+            '      }\n' +
+            '    }\n' +
+            '  }\n' +
+            '}\n\n' +
+            'Replace /absolute/path/to/your/project with your actual project path.');
     }
     async initialize() {
         console.error(`${LogMessages.USING_AI_CONTEXT} ${this.rootPath}`);

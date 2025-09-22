@@ -85,13 +85,34 @@ You are a planning specialist focused on breaking down complex tasks into manage
 [content...]
 ```
 
+### Configuration for Cursor
+
+When using with Cursor, you need to specify the path to your `.ai-context` folder in your MCP settings:
+
+**File:** `.cursor/mcp.json` (in your project root)
+```json
+{
+  "mcpServers": {
+    "ai-context": {
+      "command": "npx",
+      "args": ["--yes", "github:alonlevyshavit/ai-context-mcp"],
+      "env": {
+        "AI_CONTEXT_ROOT": "/absolute/path/to/your/project/.ai-context"
+      }
+    }
+  }
+}
+```
+
+Replace `/absolute/path/to/your/project` with the actual path to your project.
+
 ### Automatic Path Resolution
 
-The server automatically finds your `.ai-context` folder using this priority:
-1. `AI_CONTEXT_ROOT` environment variable
+The server finds your `.ai-context` folder using this priority:
+1. `AI_CONTEXT_ROOT` environment variable (recommended for Cursor)
 2. Current working directory + `/.ai-context`
 3. Walk up directory tree looking for `.ai-context`
-4. Clear error message if not found
+4. Clear error message with setup instructions if not found
 
 ## Project Structure
 
