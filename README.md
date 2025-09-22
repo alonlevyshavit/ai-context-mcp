@@ -87,32 +87,37 @@ You are a planning specialist focused on breaking down complex tasks into manage
 
 ### Configuration for Cursor
 
-When using with Cursor, you need to specify the path to your `.ai-context` folder in your MCP settings:
+**Simple Setup - Works for all developers automatically!**
 
-**File:** `.cursor/mcp.json` (in your project root)
+Create a `.cursor/mcp.json` file in your project root:
+
 ```json
 {
   "mcpServers": {
     "ai-context": {
       "command": "npx",
-      "args": ["--yes", "github:alonlevyshavit/ai-context-mcp"],
-      "env": {
-        "AI_CONTEXT_ROOT": "/absolute/path/to/your/project/.ai-context"
-      }
+      "args": ["--yes", "github:alonlevyshavit/ai-context-mcp"]
     }
   }
 }
 ```
 
-Replace `/absolute/path/to/your/project` with the actual path to your project.
+That's it! The server will automatically find your `.ai-context` folder in the project root.
 
 ### Automatic Path Resolution
 
-The server finds your `.ai-context` folder using this priority:
-1. `AI_CONTEXT_ROOT` environment variable (recommended for Cursor)
-2. Current working directory + `/.ai-context`
-3. Walk up directory tree looking for `.ai-context`
-4. Clear error message with setup instructions if not found
+The server automatically finds your `.ai-context` folder using this smart detection order:
+
+1. **Cursor workspace root** (automatic when opened in Cursor)
+2. **Current working directory** + `/.ai-context`
+3. **Parent directories** (walks up looking for `.ai-context`)
+4. **Project root detection** (finds folders with `package.json`, `.git`, etc.)
+5. **Environment variables** (for custom locations):
+   - `AI_CONTEXT_ROOT` - explicitly set the path
+   - `CURSOR_WORKSPACE_ROOT` - automatically set by Cursor
+   - `PWD`, `PROJECT_ROOT`, `WORKSPACE_ROOT` - set by various IDEs
+
+No configuration needed for most projects!
 
 ## Project Structure
 

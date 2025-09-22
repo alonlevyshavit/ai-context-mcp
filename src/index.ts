@@ -53,7 +53,7 @@ class AiContextMCPServer {
   }
 
   private findAiContextRoot(): string {
-    // 1. Check explicit environment variable (recommended for MCP/Cursor)
+    // 1. Check explicit environment variable (for custom locations)
     if (process.env.AI_CONTEXT_ROOT) {
       const explicitPath = path.resolve(process.env.AI_CONTEXT_ROOT);
       if (fs.existsSync(explicitPath)) {
@@ -66,14 +66,22 @@ class AiContextMCPServer {
       );
     }
 
-    // 2. Check current working directory for .ai-context
+    // 2. Check if CURSOR_WORKSPACE_ROOT is set (Cursor sets this when running MCP)
+    if (process.env.CURSOR_WORKSPACE_ROOT) {
+      const workspaceContext = path.join(process.env.CURSOR_WORKSPACE_ROOT, '.ai-context');
+      if (fs.existsSync(workspaceContext)) {
+        return workspaceContext;
+      }
+    }
+
+    // 3. Check current working directory for .ai-context
     const cwd = process.cwd();
     const cwdContext = path.join(cwd, '.ai-context');
     if (fs.existsSync(cwdContext)) {
       return cwdContext;
     }
 
-    // 3. Search up the directory tree from CWD
+    // 4. Search up the directory tree from CWD
     let currentDir = cwd;
     while (currentDir !== path.dirname(currentDir)) {
       const contextPath = path.join(currentDir, '.ai-context');
@@ -83,25 +91,60 @@ class AiContextMCPServer {
       currentDir = path.dirname(currentDir);
     }
 
-    // 4. Error if not found with helpful message for Cursor users
+    // 5. Check common MCP/IDE working directory patterns
+    // When run via MCP, the cwd might be in ~/.cursor, ~/.vscode, or project root
+    const possibleRoots = [
+      process.env.PWD, // Original working directory
+      process.env.INIT_CWD, // Initial working directory (npm sets this)
+      process.env.PROJECT_ROOT, // Some IDEs set this
+      process.env.WORKSPACE_ROOT, // Generic workspace root
+    ].filter(Boolean); // Remove undefined values
+
+    for (const rootPath of possibleRoots) {
+      const contextPath = path.join(rootPath!, '.ai-context');
+      if (fs.existsSync(contextPath)) {
+        return contextPath;
+      }
+    }
+
+    // 6. Smart detection: Look for .ai-context near common project indicators
+    // Start from CWD and look for project roots with these markers
+    const projectMarkers = ['package.json', '.git', 'pom.xml', 'Cargo.toml', 'go.mod', 'requirements.txt'];
+    currentDir = cwd;
+
+    // First, walk UP to find a project root
+    while (currentDir !== path.dirname(currentDir)) {
+      // Check if this looks like a project root
+      const hasProjectMarker = projectMarkers.some(marker =>
+        fs.existsSync(path.join(currentDir, marker))
+      );
+
+      if (hasProjectMarker) {
+        // Found a project root, check for .ai-context
+        const contextPath = path.join(currentDir, '.ai-context');
+        if (fs.existsSync(contextPath)) {
+          console.error(`[AI-Context MCP] Found .ai-context in project root: ${currentDir}`);
+          return contextPath;
+        }
+      }
+      currentDir = path.dirname(currentDir);
+    }
+
+    // 7. Error if not found with helpful message
     console.error(`[AI-Context MCP] Current working directory: ${cwd}`);
-    console.error(`[AI-Context MCP] No .ai-context folder found in current directory or parent directories.`);
+    console.error(`[AI-Context MCP] Environment variables checked:`);
+    console.error(`  CURSOR_WORKSPACE_ROOT: ${process.env.CURSOR_WORKSPACE_ROOT || 'not set'}`);
+    console.error(`  PWD: ${process.env.PWD || 'not set'}`);
+    console.error(`  PROJECT_ROOT: ${process.env.PROJECT_ROOT || 'not set'}`);
 
     throw new Error(
       'No .ai-context folder found.\n\n' +
-      'For Cursor users, add this to your MCP settings:\n' +
-      '{\n' +
-      '  "mcpServers": {\n' +
-      '    "ai-context": {\n' +
-      '      "command": "npx",\n' +
-      '      "args": ["--yes", "github:alonlevyshavit/ai-context-mcp"],\n' +
-      '      "env": {\n' +
-      '        "AI_CONTEXT_ROOT": "/absolute/path/to/your/project/.ai-context"\n' +
-      '      }\n' +
-      '    }\n' +
-      '  }\n' +
-      '}\n\n' +
-      'Replace /absolute/path/to/your/project with your actual project path.'
+      'Please ensure you have a .ai-context folder in your project root.\n' +
+      'The server looked in:\n' +
+      `  - Current directory: ${cwd}\n` +
+      `  - Parent directories up to root\n` +
+      `  - Project roots with package.json, .git, etc.\n\n` +
+      'For Cursor users: Make sure Cursor is open in the project root folder.'
     );
   }
 
