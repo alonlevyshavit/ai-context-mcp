@@ -1,0 +1,48 @@
+{
+  "name": "ai-context-mcp",
+  "version": "1.0.0",
+  "description": "MCP server for AI Context framework orchestration",
+  "main": "dist/index.js",
+  "bin": {
+    "ai-context-mcp": "./dist/index.js"
+  },
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/index.ts",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "test:watch": "vitest",
+    "validate": "tsx src/validate.ts",
+    "prepare": "npm run build",
+    "lint": "echo 'No linter configured'",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "mcp",
+    "ai-context",
+    "llm",
+    "orchestration",
+    "cursor",
+    "claude"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-org/ai-context-mcp.git"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^0.5.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@vitest/coverage-v8": "^1.6.1",
+    "tsx": "^4.0.0",
+    "typescript": "^5.0.0",
+    "vitest": "^1.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "license": "MIT"
+}
