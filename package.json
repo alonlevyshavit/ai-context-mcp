@@ -4,7 +4,7 @@
   "description": "MCP server for AI Context framework orchestration",
   "main": "dist/index.js",
   "bin": {
-    "ai-context-mcp": "./dist/index.js"
+    "ai-context-mcp": "./bin/startup.js"
   },
   "type": "module",
   "scripts": {
