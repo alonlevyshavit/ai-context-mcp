@@ -96,13 +96,28 @@ Create a `.cursor/mcp.json` file in your project root:
   "mcpServers": {
     "ai-context": {
       "command": "npx",
+      "args": ["--yes", "github:alonlevyshavit/ai-context-mcp"],
+      "cwd": "${workspaceFolder}"
+    }
+  }
+}
+```
+
+The `cwd: "${workspaceFolder}"` ensures the MCP server runs from your project root, making it easy to find your `.ai-context` folder.
+
+**Alternative: Without cwd (also works)**
+```json
+{
+  "mcpServers": {
+    "ai-context": {
+      "command": "npx",
       "args": ["--yes", "github:alonlevyshavit/ai-context-mcp"]
     }
   }
 }
 ```
 
-That's it! The server will automatically find your `.ai-context` folder in the project root.
+The server has smart detection and will find your `.ai-context` folder even without `cwd`.
 
 ### Automatic Path Resolution
 
