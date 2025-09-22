@@ -57,6 +57,7 @@ class AiContextMCPServer {
     if (process.env.AI_CONTEXT_ROOT) {
       const explicitPath = path.resolve(process.env.AI_CONTEXT_ROOT);
       if (fs.existsSync(explicitPath)) {
+        console.error(`[AI-Context MCP] Detection method: Explicit AI_CONTEXT_ROOT environment variable`);
         return explicitPath;
       }
       // If specified but doesn't exist, provide helpful error
@@ -70,6 +71,7 @@ class AiContextMCPServer {
     if (process.env.CURSOR_WORKSPACE_ROOT) {
       const workspaceContext = path.join(process.env.CURSOR_WORKSPACE_ROOT, '.ai-context');
       if (fs.existsSync(workspaceContext)) {
+        console.error(`[AI-Context MCP] Detection method: CURSOR_WORKSPACE_ROOT environment variable`);
         return workspaceContext;
       }
     }
@@ -78,6 +80,7 @@ class AiContextMCPServer {
     const cwd = process.cwd();
     const cwdContext = path.join(cwd, '.ai-context');
     if (fs.existsSync(cwdContext)) {
+      console.error(`[AI-Context MCP] Detection method: Current working directory`);
       return cwdContext;
     }
 
@@ -86,6 +89,7 @@ class AiContextMCPServer {
     while (currentDir !== path.dirname(currentDir)) {
       const contextPath = path.join(currentDir, '.ai-context');
       if (fs.existsSync(contextPath)) {
+        console.error(`[AI-Context MCP] Detection method: Parent directory search (found at: ${currentDir})`);
         return contextPath;
       }
       currentDir = path.dirname(currentDir);
@@ -103,6 +107,7 @@ class AiContextMCPServer {
     for (const rootPath of possibleRoots) {
       const contextPath = path.join(rootPath!, '.ai-context');
       if (fs.existsSync(contextPath)) {
+        console.error(`[AI-Context MCP] Detection method: Environment variable ${possibleRoots.indexOf(rootPath) === 0 ? 'PWD' : possibleRoots.indexOf(rootPath) === 1 ? 'INIT_CWD' : possibleRoots.indexOf(rootPath) === 2 ? 'PROJECT_ROOT' : 'WORKSPACE_ROOT'}`);
         return contextPath;
       }
     }
@@ -123,7 +128,8 @@ class AiContextMCPServer {
         // Found a project root, check for .ai-context
         const contextPath = path.join(currentDir, '.ai-context');
         if (fs.existsSync(contextPath)) {
-          console.error(`[AI-Context MCP] Found .ai-context in project root: ${currentDir}`);
+          console.error(`[AI-Context MCP] Detection method: Project root with markers (${projectMarkers.filter(m => fs.existsSync(path.join(currentDir, m))).join(', ')})`);
+          console.error(`[AI-Context MCP] Found at: ${currentDir}`);
           return contextPath;
         }
       }
