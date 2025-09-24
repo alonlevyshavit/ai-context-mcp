@@ -2,9 +2,25 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Commands
+
+### Development Commands
+- `npm run build` - Build TypeScript to JavaScript
+- `npm run dev` - Run in development mode with a specific .ai-context folder: `AI_CONTEXT_ROOT=/path/to/.ai-context npm run dev`
+- `npm run test` - Run tests in watch mode
+- `npm run test:run` - Run tests once
+- `npm run test:coverage` - Run tests with coverage report
+- `npm run typecheck` - Run TypeScript type checking without emitting files
+- `npm run validate` - Validate metadata extraction for a given .ai-context folder
+
+### Testing Specific Components
+- `npm test -- scanner.test.ts` - Run only scanner tests
+- `npm test -- index.test.ts` - Run only main server logic tests
+- `npm test -- metadata-extractor.test.ts` - Run only metadata extraction tests
+
 ## Architecture Overview
 
-This is a **standalone MCP (Model Context Protocol) server** that provides AI context orchestration for any project with a `.ai-context` folder. The server runs independently and can be used by multiple projects without installation via `npx github:org/ai-context-mcp`.
+This is a **standalone MCP (Model Context Protocol) server** that provides AI context orchestration for any project with a `.ai-context` folder. The server runs independently and can be used by multiple projects without installation via `npx github:alonlevyshavit/ai-context-mcp`.
 
 ### Core Architecture Pattern
 
@@ -49,29 +65,9 @@ All strings are defined as enums in `src/types.ts` for maintainability:
 - `FileExtensions` - .md
 - `LogMessages` - All console output messages
 
-## Commands
+### Required Configuration
 
-### Development Commands
-- `npm run build` - Build TypeScript to JavaScript
-- `npm run dev` - Run in development mode with a specific .ai-context folder: `AI_CONTEXT_ROOT=/path/to/.ai-context npm run dev`
-- `npm run test` - Run tests in watch mode
-- `npm run test:run` - Run tests once
-- `npm run test:coverage` - Run tests with coverage report
-- `npm run typecheck` - Run TypeScript type checking without emitting files
-- `npm run validate` - Validate metadata extraction for a given .ai-context folder
-
-### Testing Specific Components
-- `npm test -- scanner.test.ts` - Run only scanner tests
-- `npm test -- index.test.ts` - Run only main server logic tests
-- `npm test -- metadata-extractor.test.ts` - Run only metadata extraction tests
-
-### Path Resolution Strategy
-
-The server finds `.ai-context` folders in this priority order:
-1. `AI_CONTEXT_ROOT` environment variable (absolute path)
-2. Current working directory + `/.ai-context`
-3. Walk up directory tree looking for `.ai-context`
-4. Error if not found
+The server requires the `AI_CONTEXT_ROOT` environment variable to be set to the absolute path of your `.ai-context` folder. There is no automatic path resolution - this explicit configuration ensures predictable behavior.
 
 ### Tool Generation Logic
 
@@ -158,3 +154,20 @@ AI_CONTEXT_ROOT=/path/to/test-project/.ai-context npm run dev
 - **Server instantiation in tests**: Avoid importing `src/index.ts` in tests as it immediately starts the server
 - **Path separators**: Handle both Unix (`/`) and Windows (`\`) path separators in guideline parsing
 - **Case sensitivity**: File extension matching uses case-insensitive comparison
+
+### Cursor Configuration
+The required configuration for Cursor is in `.cursor/mcp.json`:
+```json
+{
+  "mcpServers": {
+    "ai-context": {
+      "command": "npx",
+      "args": ["--yes", "github:alonlevyshavit/ai-context-mcp"],
+      "env": {
+        "AI_CONTEXT_ROOT": "/absolute/path/to/your/project/.ai-context"
+      }
+    }
+  }
+}
+```
+**Important**: Replace `/absolute/path/to/your/project/.ai-context` with the actual absolute path to your `.ai-context` folder.

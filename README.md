@@ -4,7 +4,7 @@ A standalone MCP (Model Context Protocol) server that provides AI context orches
 
 ## Quick Start
 
-For any project with a `.ai-context` folder, add this configuration:
+**IMPORTANT**: The `AI_CONTEXT_ROOT` environment variable is required and must point to your `.ai-context` folder.
 
 **Cursor (`.cursor/mcp.json`):**
 ```json
@@ -12,7 +12,10 @@ For any project with a `.ai-context` folder, add this configuration:
   "mcpServers": {
     "ai-context": {
       "command": "npx",
-      "args": ["github:your-org/ai-context-mcp"]
+      "args": ["--yes", "github:alonlevyshavit/ai-context-mcp"],
+      "env": {
+        "AI_CONTEXT_ROOT": "/absolute/path/to/your/project/.ai-context"
+      }
     }
   }
 }
@@ -24,16 +27,19 @@ For any project with a `.ai-context` folder, add this configuration:
   "mcpServers": {
     "ai-context": {
       "command": "npx",
-      "args": ["github:your-org/ai-context-mcp"]
+      "args": ["--yes", "github:alonlevyshavit/ai-context-mcp"],
+      "env": {
+        "AI_CONTEXT_ROOT": "/absolute/path/to/your/project/.ai-context"
+      }
     }
   }
 }
 ```
 
-That's it! No installation needed. The server will:
+The server will:
 1. Download automatically from GitHub
 2. Build itself if needed
-3. Find your `.ai-context` folder
+3. Use your specified `.ai-context` folder
 4. Provide tools for loading agents, guidelines, and frameworks
 
 ## How It Works
@@ -55,7 +61,7 @@ Each tool includes rich metadata extracted from the resource files to help AI as
 The server supports multiple metadata formats with graceful fallbacks:
 
 **YAML Frontmatter (Preferred):**
-```markdown
+![img.png](img.png)```markdown
 ---
 description: Planning specialist for task breakdown and project organization
 use_cases:
@@ -87,8 +93,6 @@ You are a planning specialist focused on breaking down complex tasks into manage
 
 ### Configuration for Cursor
 
-**Simple Setup - Works for all developers automatically!**
-
 Create a `.cursor/mcp.json` file in your project root:
 
 ```json
@@ -97,42 +101,25 @@ Create a `.cursor/mcp.json` file in your project root:
     "ai-context": {
       "command": "npx",
       "args": ["--yes", "github:alonlevyshavit/ai-context-mcp"],
-      "cwd": "${workspaceFolder}"
+      "env": {
+        "AI_CONTEXT_ROOT": "/absolute/path/to/your/project/.ai-context"
+      }
     }
   }
 }
 ```
 
-The `cwd: "${workspaceFolder}"` ensures the MCP server runs from your project root, making it easy to find your `.ai-context` folder.
+**Note**: Replace `/absolute/path/to/your/project/.ai-context` with the actual absolute path to your `.ai-context` folder.
 
-**Alternative: Without cwd (also works)**
-```json
-{
-  "mcpServers": {
-    "ai-context": {
-      "command": "npx",
-      "args": ["--yes", "github:alonlevyshavit/ai-context-mcp"]
-    }
-  }
-}
-```
+### Required Configuration
 
-The server has smart detection and will find your `.ai-context` folder even without `cwd`.
+The `AI_CONTEXT_ROOT` environment variable must be set to the absolute path of your `.ai-context` folder.
 
-### Automatic Path Resolution
-
-The server automatically finds your `.ai-context` folder using this smart detection order:
-
-1. **Cursor workspace root** (automatic when opened in Cursor)
-2. **Current working directory** + `/.ai-context`
-3. **Parent directories** (walks up looking for `.ai-context`)
-4. **Project root detection** (finds folders with `package.json`, `.git`, etc.)
-5. **Environment variables** (for custom locations):
-   - `AI_CONTEXT_ROOT` - explicitly set the path
-   - `CURSOR_WORKSPACE_ROOT` - automatically set by Cursor
-   - `PWD`, `PROJECT_ROOT`, `WORKSPACE_ROOT` - set by various IDEs
-
-No configuration needed for most projects!
+This explicit configuration ensures:
+- Clear and predictable behavior
+- No ambiguity about which `.ai-context` folder is being used
+- Consistent operation across different environments
+- Explicit control over the context being loaded
 
 ## Project Structure
 
@@ -162,13 +149,13 @@ The server provides both **dynamic** and **static** tools:
 
 ## Configuration Options
 
-### Custom .ai-context Path
+### Required: AI_CONTEXT_ROOT Path
 ```json
 {
   "mcpServers": {
     "ai-context": {
       "command": "npx",
-      "args": ["github:your-org/ai-context-mcp"],
+      "args": ["--yes", "github:alonlevyshavit/ai-context-mcp"],
       "env": {
         "AI_CONTEXT_ROOT": "/absolute/path/to/.ai-context"
       }

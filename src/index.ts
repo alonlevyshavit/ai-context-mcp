@@ -27,6 +27,9 @@ class AiContextMCPServer {
   private frameworksMetadata: Map<string, FrameworkMetadata> = new Map();
   private dynamicTools: DynamicTool[] = [];
   private readonly loader: Loader;
+  private guidelineToolMapping: Map<string, string> = new Map(); // Maps tool name to full path
+  private agentToolMapping: Map<string, string> = new Map(); // Maps tool name to agent name
+  private frameworkToolMapping: Map<string, string> = new Map(); // Maps tool name to framework name
 
   constructor() {
     this.rootPath = this.findAiContextRoot();
@@ -53,105 +56,36 @@ class AiContextMCPServer {
   }
 
   private findAiContextRoot(): string {
-    // 1. Check explicit environment variable (for custom locations)
-    if (process.env.AI_CONTEXT_ROOT) {
-      const explicitPath = path.resolve(process.env.AI_CONTEXT_ROOT);
-      if (fs.existsSync(explicitPath)) {
-        console.error(`[AI-Context MCP] Detection method: Explicit AI_CONTEXT_ROOT environment variable`);
-        return explicitPath;
-      }
-      // If specified but doesn't exist, provide helpful error
+    // AI_CONTEXT_ROOT environment variable is required
+    if (!process.env.AI_CONTEXT_ROOT) {
+      throw new Error(
+        'AI_CONTEXT_ROOT environment variable is required.\n\n' +
+        'Please set AI_CONTEXT_ROOT to the absolute path of your .ai-context folder.\n' +
+        'Example configuration in Cursor (.cursor/mcp.json):\n' +
+        '{\n' +
+        '  "mcpServers": {\n' +
+        '    "ai-context": {\n' +
+        '      "command": "npx",\n' +
+        '      "args": ["--yes", "github:alonlevyshavit/ai-context-mcp"],\n' +
+        '      "env": {\n' +
+        '        "AI_CONTEXT_ROOT": "/absolute/path/to/your/project/.ai-context"\n' +
+        '      }\n' +
+        '    }\n' +
+        '  }\n' +
+        '}'
+      );
+    }
+
+    const explicitPath = path.resolve(process.env.AI_CONTEXT_ROOT);
+    if (!fs.existsSync(explicitPath)) {
       throw new Error(
         `AI_CONTEXT_ROOT was set to '${process.env.AI_CONTEXT_ROOT}' but path does not exist.\n` +
         `Please check the path and ensure the .ai-context folder exists.`
       );
     }
 
-    // 2. Check if CURSOR_WORKSPACE_ROOT is set (Cursor sets this when running MCP)
-    if (process.env.CURSOR_WORKSPACE_ROOT) {
-      const workspaceContext = path.join(process.env.CURSOR_WORKSPACE_ROOT, '.ai-context');
-      if (fs.existsSync(workspaceContext)) {
-        console.error(`[AI-Context MCP] Detection method: CURSOR_WORKSPACE_ROOT environment variable`);
-        return workspaceContext;
-      }
-    }
-
-    // 3. Check current working directory for .ai-context
-    const cwd = process.cwd();
-    const cwdContext = path.join(cwd, '.ai-context');
-    if (fs.existsSync(cwdContext)) {
-      console.error(`[AI-Context MCP] Detection method: Current working directory`);
-      return cwdContext;
-    }
-
-    // 4. Search up the directory tree from CWD
-    let currentDir = cwd;
-    while (currentDir !== path.dirname(currentDir)) {
-      const contextPath = path.join(currentDir, '.ai-context');
-      if (fs.existsSync(contextPath)) {
-        console.error(`[AI-Context MCP] Detection method: Parent directory search (found at: ${currentDir})`);
-        return contextPath;
-      }
-      currentDir = path.dirname(currentDir);
-    }
-
-    // 5. Check common MCP/IDE working directory patterns
-    // When run via MCP, the cwd might be in ~/.cursor, ~/.vscode, or project root
-    const possibleRoots = [
-      process.env.PWD, // Original working directory
-      process.env.INIT_CWD, // Initial working directory (npm sets this)
-      process.env.PROJECT_ROOT, // Some IDEs set this
-      process.env.WORKSPACE_ROOT, // Generic workspace root
-    ].filter(Boolean); // Remove undefined values
-
-    for (const rootPath of possibleRoots) {
-      const contextPath = path.join(rootPath!, '.ai-context');
-      if (fs.existsSync(contextPath)) {
-        console.error(`[AI-Context MCP] Detection method: Environment variable ${possibleRoots.indexOf(rootPath) === 0 ? 'PWD' : possibleRoots.indexOf(rootPath) === 1 ? 'INIT_CWD' : possibleRoots.indexOf(rootPath) === 2 ? 'PROJECT_ROOT' : 'WORKSPACE_ROOT'}`);
-        return contextPath;
-      }
-    }
-
-    // 6. Smart detection: Look for .ai-context near common project indicators
-    // Start from CWD and look for project roots with these markers
-    const projectMarkers = ['package.json', '.git', 'pom.xml', 'Cargo.toml', 'go.mod', 'requirements.txt'];
-    currentDir = cwd;
-
-    // First, walk UP to find a project root
-    while (currentDir !== path.dirname(currentDir)) {
-      // Check if this looks like a project root
-      const hasProjectMarker = projectMarkers.some(marker =>
-        fs.existsSync(path.join(currentDir, marker))
-      );
-
-      if (hasProjectMarker) {
-        // Found a project root, check for .ai-context
-        const contextPath = path.join(currentDir, '.ai-context');
-        if (fs.existsSync(contextPath)) {
-          console.error(`[AI-Context MCP] Detection method: Project root with markers (${projectMarkers.filter(m => fs.existsSync(path.join(currentDir, m))).join(', ')})`);
-          console.error(`[AI-Context MCP] Found at: ${currentDir}`);
-          return contextPath;
-        }
-      }
-      currentDir = path.dirname(currentDir);
-    }
-
-    // 7. Error if not found with helpful message
-    console.error(`[AI-Context MCP] Current working directory: ${cwd}`);
-    console.error(`[AI-Context MCP] Environment variables checked:`);
-    console.error(`  CURSOR_WORKSPACE_ROOT: ${process.env.CURSOR_WORKSPACE_ROOT || 'not set'}`);
-    console.error(`  PWD: ${process.env.PWD || 'not set'}`);
-    console.error(`  PROJECT_ROOT: ${process.env.PROJECT_ROOT || 'not set'}`);
-
-    throw new Error(
-      'No .ai-context folder found.\n\n' +
-      'Please ensure you have a .ai-context folder in your project root.\n' +
-      'The server looked in:\n' +
-      `  - Current directory: ${cwd}\n` +
-      `  - Parent directories up to root\n` +
-      `  - Project roots with package.json, .git, etc.\n\n` +
-      'For Cursor users: Make sure Cursor is open in the project root folder.'
-    );
+    console.error(`[AI-Context MCP] Using AI_CONTEXT_ROOT: ${explicitPath}`);
+    return explicitPath;
   }
 
   private async initialize(): Promise<void> {
@@ -182,6 +116,9 @@ class AiContextMCPServer {
     for (const [agentName, metadata] of this.agentsMetadata) {
       const toolName = `${ToolPrefixes.AGENT}${agentName.replace(/-/g, '_')}`;
 
+      // Store the mapping from tool name to actual agent name
+      this.agentToolMapping.set(toolName, agentName);
+
       // Use the raw metadata as the tool description
       const description = metadata.description;
 
@@ -197,11 +134,28 @@ class AiContextMCPServer {
 
     // Generate tools for guidelines
     for (const [guidelinePath, metadata] of this.guidelinesMetadata) {
-      // Create tool name from path (e.g., "development/api-design" -> "load_guideline_development_api_design")
-      const toolName = `${ToolPrefixes.GUIDELINE}${guidelinePath.replace(/[\/\-]/g, '_')}`;
+      // Create shorter tool name by using only the last part of the path
+      // e.g., "testing/e2e/playwright_agent_guidelines" -> "load_guideline_playwright_agent"
+      const pathParts = guidelinePath.split('/');
+      const lastName = pathParts[pathParts.length - 1]
+        .replace(/_guidelines?$/, '') // Remove "_guidelines" or "_guideline" suffix
+        .replace(/[_-]guideline?s?$/, ''); // Also remove "-guidelines", "-guideline", etc.
 
-      // Add category and path info to metadata
-      const description = `Category: ${metadata.category}\nPath: ${guidelinePath}\n\n${metadata.description}`;
+      // If we still have a very long name, use the last two meaningful parts
+      let shortName = lastName;
+      if (lastName.length > 20 && pathParts.length > 1) {
+        // Take the parent folder name as well for context
+        const parentName = pathParts[pathParts.length - 2];
+        shortName = `${parentName}_${lastName}`.substring(0, 30);
+      }
+
+      const toolName = `${ToolPrefixes.GUIDELINE}${shortName.replace(/[\/\-]/g, '_')}`;
+
+      // Store the mapping from tool name to full path
+      this.guidelineToolMapping.set(toolName, guidelinePath);
+
+      // Add category and full path info to metadata for clarity
+      const description = `Category: ${metadata.category}\nFull Path: ${guidelinePath}\n\n${metadata.description}`;
 
       this.dynamicTools.push({
         name: toolName,
@@ -216,6 +170,9 @@ class AiContextMCPServer {
     // Generate tools for frameworks
     for (const [frameworkName, metadata] of this.frameworksMetadata) {
       const toolName = `${ToolPrefixes.FRAMEWORK}${frameworkName.replace(/-/g, '_')}`;
+
+      // Store the mapping from tool name to actual framework name
+      this.frameworkToolMapping.set(toolName, frameworkName);
 
       // Use the raw metadata as the tool description
       const description = metadata.description;
@@ -247,19 +204,31 @@ class AiContextMCPServer {
       try {
         // Handle dynamic agent loading tools
         if (name.startsWith(ToolPrefixes.AGENT)) {
-          const agentName = name.replace(ToolPrefixes.AGENT, '').replace(/_/g, '-');
+          // Use the mapping to get the actual agent name
+          const agentName = this.agentToolMapping.get(name);
+          if (!agentName) {
+            throw new Error(`Agent tool '${name}' not found in mapping`);
+          }
           return await this.loadAgent(agentName);
         }
 
         // Handle dynamic guideline loading tools
         if (name.startsWith(ToolPrefixes.GUIDELINE)) {
-          const guidelinePath = name.replace(ToolPrefixes.GUIDELINE, '').replace(/_/g, '/').replace('//', '-');
-          return await this.loadGuideline(guidelinePath);
+          // Use the mapping to get the full path
+          const fullPath = this.guidelineToolMapping.get(name);
+          if (!fullPath) {
+            throw new Error(`Guideline tool '${name}' not found in mapping`);
+          }
+          return await this.loadGuideline(fullPath);
         }
 
         // Handle dynamic framework loading tools
         if (name.startsWith(ToolPrefixes.FRAMEWORK)) {
-          const frameworkName = name.replace(ToolPrefixes.FRAMEWORK, '').replace(/_/g, '-');
+          // Use the mapping to get the actual framework name
+          const frameworkName = this.frameworkToolMapping.get(name);
+          if (!frameworkName) {
+            throw new Error(`Framework tool '${name}' not found in mapping`);
+          }
           return await this.loadFramework(frameworkName);
         }
 
