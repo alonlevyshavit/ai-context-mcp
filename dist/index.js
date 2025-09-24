@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import { ListToolsRequestSchema, CallToolRequestSchema } from '@modelcontextprotocol/sdk/types.js';
+import { ListResourcesRequestSchema, ReadResourceRequestSchema, ListToolsRequestSchema, CallToolRequestSchema } from '@modelcontextprotocol/sdk/types.js';
 import { Scanner } from './scanner.js';
 import { Loader } from './loader.js';
 import { ToolPrefixes, StaticToolNames, LogMessages } from './types.js';
@@ -14,6 +14,7 @@ class AiContextMCPServer {
     guidelinesMetadata = new Map();
     frameworksMetadata = new Map();
     dynamicTools = [];
+    dynamicResources = [];
     loader; // Will be initialized after metadata is loaded
     guidelineToolMapping = new Map(); // Maps tool name to full path
     agentToolMapping = new Map(); // Maps tool name to agent name
@@ -25,6 +26,7 @@ class AiContextMCPServer {
             version: '1.0.0'
         }, {
             capabilities: {
+                resources: {},
                 tools: {}
             }
         });
@@ -66,13 +68,14 @@ class AiContextMCPServer {
         this.frameworksMetadata = await scanner.scanFrameworksWithMetadata();
         // Initialize loader AFTER metadata is populated
         this.loader = new Loader(this.agentsMetadata, this.guidelinesMetadata, this.frameworksMetadata);
-        // Generate dynamic tools for each resource
+        // Generate dynamic tools and resources for each resource
         this.generateDynamicTools();
+        this.generateDynamicResources();
         console.error(`${LogMessages.FOUND}`);
         console.error(`  - ${this.agentsMetadata.size} agents`);
         console.error(`  - ${this.guidelinesMetadata.size} guidelines`);
         console.error(`  - ${this.frameworksMetadata.size} frameworks`);
-        console.error(`${LogMessages.GENERATED_TOOLS} ${this.dynamicTools.length} tools total`);
+        console.error(`${LogMessages.GENERATED_TOOLS} ${this.dynamicTools.length} tools and ${this.dynamicResources.length} resources total`);
         this.setupHandlers();
     }
     generateDynamicTools() {
@@ -138,6 +141,38 @@ class AiContextMCPServer {
             });
         }
     }
+    generateDynamicResources() {
+        // Generate resources for agents
+        for (const [agentName, metadata] of this.agentsMetadata) {
+            const resourceUri = `agent://${agentName}`;
+            this.dynamicResources.push({
+                uri: resourceUri,
+                name: agentName.replace(/-agent$/, ''), // Remove -agent suffix for cleaner names
+                description: metadata.description,
+                mimeType: 'text/plain'
+            });
+        }
+        // Generate resources for guidelines
+        for (const [guidelinePath, metadata] of this.guidelinesMetadata) {
+            const resourceUri = `guideline://${guidelinePath}`;
+            this.dynamicResources.push({
+                uri: resourceUri,
+                name: guidelinePath.split('/').pop() || guidelinePath,
+                description: metadata.description,
+                mimeType: 'text/plain'
+            });
+        }
+        // Generate resources for frameworks
+        for (const [frameworkName, metadata] of this.frameworksMetadata) {
+            const resourceUri = `framework://${frameworkName}`;
+            this.dynamicResources.push({
+                uri: resourceUri,
+                name: frameworkName,
+                description: metadata.description,
+                mimeType: 'text/plain'
+            });
+        }
+    }
     setupHandlers() {
         // Register all tools (dynamic + static)
         this.server.setRequestHandler(ListToolsRequestSchema, async () => {
@@ -146,12 +181,69 @@ class AiContextMCPServer {
                 tools: [...this.dynamicTools, ...staticTools]
             };
         });
+        // Register resource handlers
+        this.server.setRequestHandler(ListResourcesRequestSchema, async () => {
+            return {
+                resources: this.dynamicResources
+            };
+        });
+        // Handle resource reading
+        this.server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
+            const { uri } = request.params;
+            try {
+                // Parse the URI to determine the resource type
+                if (uri.startsWith('agent://')) {
+                    const agentName = uri.replace('agent://', '');
+                    const content = await this.loader.loadAgent(agentName);
+                    return {
+                        contents: [{
+                                uri,
+                                mimeType: 'text/plain',
+                                text: content
+                            }]
+                    };
+                }
+                if (uri.startsWith('guideline://')) {
+                    const guidelinePath = uri.replace('guideline://', '');
+                    const content = await this.loader.loadGuideline(guidelinePath);
+                    return {
+                        contents: [{
+                                uri,
+                                mimeType: 'text/plain',
+                                text: content
+                            }]
+                    };
+                }
+                if (uri.startsWith('framework://')) {
+                    const frameworkName = uri.replace('framework://', '');
+                    const content = await this.loader.loadFramework(frameworkName);
+                    return {
+                        contents: [{
+                                uri,
+                                mimeType: 'text/plain',
+                                text: content
+                            }]
+                    };
+                }
+                throw new Error(`Unknown resource URI: ${uri}`);
+            }
+            catch (error) {
+                throw new Error(`Failed to read resource: ${error.message}`);
+            }
+        });
         // Handle tool execution
         this.server.setRequestHandler(CallToolRequestSchema, async (request) => {
             const { name, arguments: args } = request.params;
             try {
-                // Handle dynamic agent loading tools
-                if (name.startsWith(ToolPrefixes.AGENT)) {
+                // Handle static tools first
+                if (name === StaticToolNames.LIST_ALL_RESOURCES) {
+                    return this.listAllResources();
+                }
+                if (name === StaticToolNames.LOAD_MULTIPLE_RESOURCES) {
+                    return await this.loadMultipleResources(args?.resources || []);
+                }
+                // Handle dynamic agent loading tools (must end with _agent)
+                if (name.startsWith(ToolPrefixes.AGENT) && name.endsWith('_agent')) {
                     // Debug logging
                     console.error(`[DEBUG] Tool called: '${name}'`);
                     console.error(`[DEBUG] Tool mapping entries: ${Array.from(this.agentToolMapping.entries()).map(([k, v]) => `${k}=${v}`).join(', ')}`);
@@ -180,15 +272,8 @@ class AiContextMCPServer {
                     }
                     return await this.loadFramework(frameworkName);
                 }
-                // Handle static tools
-                switch (name) {
-                    case StaticToolNames.LIST_ALL_RESOURCES:
-                        return this.listAllResources();
-                    case StaticToolNames.LOAD_MULTIPLE_RESOURCES:
-                        return await this.loadMultipleResources(args?.resources || []);
-                    default:
-                        throw new Error(`Unknown tool: ${name}`);
-                }
+                // If no match found, throw error
+                throw new Error(`Unknown tool: ${name}`);
             }
             catch (error) {
                 return this.formatError(error.message);
@@ -327,16 +412,26 @@ class AiContextMCPServer {
             const transport = new StdioServerTransport();
             await this.server.connect(transport);
             console.error(LogMessages.SERVER_READY);
-            console.error(LogMessages.SAMPLE_TOOLS);
-            // Show first few of each type
-            const agentTools = this.dynamicTools.filter(t => t.name.startsWith(ToolPrefixes.AGENT)).slice(0, 3);
-            const guidelineTools = this.dynamicTools.filter(t => t.name.startsWith(ToolPrefixes.GUIDELINE)).slice(0, 3);
-            const frameworkTools = this.dynamicTools.filter(t => t.name.startsWith(ToolPrefixes.FRAMEWORK)).slice(0, 3);
-            [...agentTools, ...guidelineTools, ...frameworkTools].forEach(tool => {
+            // Show resources sample
+            console.error(`[AI-Context MCP] Available as ${this.dynamicResources.length} resources and ${this.dynamicTools.length} tools`);
+            console.error('Sample resources:');
+            const agentResources = this.dynamicResources.filter(r => r.uri.startsWith('agent://')).slice(0, 3);
+            const guidelineResources = this.dynamicResources.filter(r => r.uri.startsWith('guideline://')).slice(0, 3);
+            const frameworkResources = this.dynamicResources.filter(r => r.uri.startsWith('framework://')).slice(0, 3);
+            [...agentResources, ...guidelineResources, ...frameworkResources].forEach(resource => {
+                console.error(`  - ${resource.name} (${resource.uri})`);
+            });
+            if (this.dynamicResources.length > 9) {
+                console.error(`  ... and ${this.dynamicResources.length - 9} more resources`);
+            }
+            // Also show sample tools with new naming
+            console.error('\nSample tools (backward compatibility):');
+            const agentTools = this.dynamicTools.filter(t => t.name.startsWith(ToolPrefixes.AGENT)).slice(0, 2);
+            agentTools.forEach(tool => {
                 console.error(`  - ${tool.name}`);
             });
-            if (this.dynamicTools.length > 9) {
-                console.error(`  ... and ${this.dynamicTools.length - 9} more tools`);
+            if (this.dynamicTools.length > 2) {
+                console.error(`  ... and ${this.dynamicTools.length - 2} more tools`);
             }
         }
         catch (error) {

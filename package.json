@@ -16,7 +16,9 @@
     "test:watch": "vitest",
     "validate": "tsx src/validate.ts",
     "lint": "echo 'No linter configured'",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test:mcp": "node test/mcp-client-test.js",
+    "test:mcp:local": "node test/mcp-client-test.js test-project/.ai-context"
   },
   "keywords": [
     "mcp",

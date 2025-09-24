@@ -25,7 +25,7 @@ export interface MCPResponse {
     }>;
 }
 export declare enum ToolPrefixes {
-    AGENT = "load_agent_",
+    AGENT = "load_",
     GUIDELINE = "load_guideline_",
     FRAMEWORK = "load_framework_"
 }

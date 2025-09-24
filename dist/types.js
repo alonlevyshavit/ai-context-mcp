@@ -1,6 +1,6 @@
 export var ToolPrefixes;
 (function (ToolPrefixes) {
-    ToolPrefixes["AGENT"] = "load_agent_";
+    ToolPrefixes["AGENT"] = "load_";
     ToolPrefixes["GUIDELINE"] = "load_guideline_";
     ToolPrefixes["FRAMEWORK"] = "load_framework_";
 })(ToolPrefixes || (ToolPrefixes = {}));
