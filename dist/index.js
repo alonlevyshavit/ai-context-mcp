@@ -65,7 +65,7 @@ class AiContextMCPServer {
         this.guidelinesMetadata = await scanner.scanGuidelinesWithMetadata();
         this.frameworksMetadata = await scanner.scanFrameworksWithMetadata();
         // Initialize loader AFTER metadata is populated
-        this.loader = new Loader(this.rootPath, this.agentsMetadata, this.guidelinesMetadata, this.frameworksMetadata);
+        this.loader = new Loader(this.agentsMetadata, this.guidelinesMetadata, this.frameworksMetadata);
         // Generate dynamic tools for each resource
         this.generateDynamicTools();
         console.error(`${LogMessages.FOUND}`);

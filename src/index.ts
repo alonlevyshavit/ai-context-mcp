@@ -95,7 +95,6 @@ class AiContextMCPServer {
 
     // Initialize loader AFTER metadata is populated
     this.loader = new Loader(
-      this.rootPath,
       this.agentsMetadata,
       this.guidelinesMetadata,
       this.frameworksMetadata

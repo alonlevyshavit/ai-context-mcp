@@ -9,11 +9,6 @@ export type GuidelineMetadata = ResourceMetadata & {
     category: string;
 };
 export type FrameworkMetadata = ResourceMetadata;
-export interface ParsedAgentFile {
-    persona: string;
-    guidelines: string[];
-    frameworks: string[];
-}
 export interface DynamicTool {
     name: string;
     description: string;
