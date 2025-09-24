@@ -231,11 +231,17 @@ class AiContextMCPServer {
     async loadAgent(agentName) {
         // Debug logging
         console.error(`[DEBUG] Looking for agent: '${agentName}'`);
+        console.error(`[DEBUG] Current AI_CONTEXT_ROOT: ${this.rootPath}`);
+        console.error(`[DEBUG] Number of agents loaded: ${this.agentsMetadata.size}`);
         console.error(`[DEBUG] Available agents: ${Array.from(this.agentsMetadata.keys()).join(', ')}`);
         const metadata = this.agentsMetadata.get(agentName);
         if (!metadata) {
-            const available = Array.from(this.agentsMetadata.keys()).join(', ');
-            throw new Error(`Agent '${agentName}' not found. Available: ${available}`);
+            const available = Array.from(this.agentsMetadata.keys());
+            if (available.length === 0) {
+                throw new Error(`Agent '${agentName}' not found. No agents are loaded. ` +
+                    `Please check that AI_CONTEXT_ROOT (${this.rootPath}) contains an 'agents' directory with .md files.`);
+            }
+            throw new Error(`Agent '${agentName}' not found. Available agents: ${available.join(', ')}`);
         }
         const content = await this.loader.loadAgent(agentName);
         return this.formatResponse(content);
