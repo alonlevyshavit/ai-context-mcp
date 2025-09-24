@@ -26,7 +26,7 @@ class AiContextMCPServer {
   private guidelinesMetadata: Map<string, GuidelineMetadata> = new Map();
   private frameworksMetadata: Map<string, FrameworkMetadata> = new Map();
   private dynamicTools: DynamicTool[] = [];
-  private readonly loader: Loader;
+  private loader!: Loader; // Will be initialized after metadata is loaded
   private guidelineToolMapping: Map<string, string> = new Map(); // Maps tool name to full path
   private agentToolMapping: Map<string, string> = new Map(); // Maps tool name to agent name
   private frameworkToolMapping: Map<string, string> = new Map(); // Maps tool name to framework name
@@ -46,13 +46,7 @@ class AiContextMCPServer {
       }
     );
 
-    // Initialize loader once
-    this.loader = new Loader(
-      this.rootPath,
-      this.agentsMetadata,
-      this.guidelinesMetadata,
-      this.frameworksMetadata
-    );
+    // Loader will be initialized after metadata is populated
   }
 
   private findAiContextRoot(): string {
@@ -98,6 +92,14 @@ class AiContextMCPServer {
     this.agentsMetadata = await scanner.scanAgentsWithMetadata();
     this.guidelinesMetadata = await scanner.scanGuidelinesWithMetadata();
     this.frameworksMetadata = await scanner.scanFrameworksWithMetadata();
+
+    // Initialize loader AFTER metadata is populated
+    this.loader = new Loader(
+      this.rootPath,
+      this.agentsMetadata,
+      this.guidelinesMetadata,
+      this.frameworksMetadata
+    );
 
     // Generate dynamic tools for each resource
     this.generateDynamicTools();

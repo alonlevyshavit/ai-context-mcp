@@ -14,7 +14,7 @@ class AiContextMCPServer {
     guidelinesMetadata = new Map();
     frameworksMetadata = new Map();
     dynamicTools = [];
-    loader;
+    loader; // Will be initialized after metadata is loaded
     guidelineToolMapping = new Map(); // Maps tool name to full path
     agentToolMapping = new Map(); // Maps tool name to agent name
     frameworkToolMapping = new Map(); // Maps tool name to framework name
@@ -28,8 +28,7 @@ class AiContextMCPServer {
                 tools: {}
             }
         });
-        // Initialize loader once
-        this.loader = new Loader(this.rootPath, this.agentsMetadata, this.guidelinesMetadata, this.frameworksMetadata);
+        // Loader will be initialized after metadata is populated
     }
     findAiContextRoot() {
         // AI_CONTEXT_ROOT environment variable is required
@@ -65,6 +64,8 @@ class AiContextMCPServer {
         this.agentsMetadata = await scanner.scanAgentsWithMetadata();
         this.guidelinesMetadata = await scanner.scanGuidelinesWithMetadata();
         this.frameworksMetadata = await scanner.scanFrameworksWithMetadata();
+        // Initialize loader AFTER metadata is populated
+        this.loader = new Loader(this.rootPath, this.agentsMetadata, this.guidelinesMetadata, this.frameworksMetadata);
         // Generate dynamic tools for each resource
         this.generateDynamicTools();
         console.error(`${LogMessages.FOUND}`);
