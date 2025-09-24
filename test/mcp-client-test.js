@@ -9,7 +9,7 @@
  * - Static tools
  *
  * Usage: node test/mcp-client-test.js [ai-context-root-path]
- * Default path: /Users/alon.shavit/Bob/repos/hibob-web-client/.ai-context
+ * Example: node test/mcp-client-test.js ./test-project/.ai-context
  */
 
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
@@ -17,8 +17,8 @@ import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 import * as fs from 'fs/promises';
 import * as path from 'path';
 
-// Get AI_CONTEXT_ROOT from command line or use default
-const AI_CONTEXT_ROOT = process.argv[2] || '/Users/alon.shavit/Bob/repos/hibob-web-client/.ai-context';
+// Get AI_CONTEXT_ROOT from command line or environment variable
+const AI_CONTEXT_ROOT = process.argv[2] || process.env.AI_CONTEXT_ROOT || './test-project/.ai-context';
 
 async function runTests() {
   console.log('=== MCP CLIENT TEST SUITE ===\n');
