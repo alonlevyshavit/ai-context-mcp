@@ -2,9 +2,9 @@
   "mcpServers": {
     "ai-context-local": {
       "command": "node",
-      "args": ["/Users/alon.shavit/Bob/mcp-servers/ai-context-mcp/dist/index.js"],
+      "args": ["./dist/index.js"],
       "env": {
-        "AI_CONTEXT_ROOT": "/Users/alon.shavit/Bob/repos/hibob-web-client/.ai-context"
+        "AI_CONTEXT_ROOT": "/path/to/your/project/.ai-context"
       }
     }
   }
