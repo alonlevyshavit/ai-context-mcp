@@ -204,10 +204,14 @@ class AiContextMCPServer {
       try {
         // Handle dynamic agent loading tools
         if (name.startsWith(ToolPrefixes.AGENT)) {
+          // Debug logging
+          console.error(`[DEBUG] Tool called: '${name}'`);
+          console.error(`[DEBUG] Tool mapping entries: ${Array.from(this.agentToolMapping.entries()).map(([k, v]) => `${k}=${v}`).join(', ')}`);
+
           // Use the mapping to get the actual agent name
           const agentName = this.agentToolMapping.get(name);
           if (!agentName) {
-            throw new Error(`Agent tool '${name}' not found in mapping`);
+            throw new Error(`Agent tool '${name}' not found in mapping. Available mappings: ${Array.from(this.agentToolMapping.keys()).join(', ')}`);
           }
           return await this.loadAgent(agentName);
         }
@@ -285,6 +289,10 @@ class AiContextMCPServer {
   }
 
   private async loadAgent(agentName: string): Promise<any> {
+    // Debug logging
+    console.error(`[DEBUG] Looking for agent: '${agentName}'`);
+    console.error(`[DEBUG] Available agents: ${Array.from(this.agentsMetadata.keys()).join(', ')}`);
+
     const metadata = this.agentsMetadata.get(agentName);
 
     if (!metadata) {
