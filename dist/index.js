@@ -1,12 +1,69 @@
 #!/usr/bin/env node
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import { ListResourcesRequestSchema, ReadResourceRequestSchema, ListToolsRequestSchema, CallToolRequestSchema } from '@modelcontextprotocol/sdk/types.js';
+import { InitializeRequestSchema, ListToolsRequestSchema, CallToolRequestSchema } from '@modelcontextprotocol/sdk/types.js';
 import { Scanner } from './scanner.js';
 import { Loader } from './loader.js';
 import { ToolPrefixes, StaticToolNames, LogMessages } from './types.js';
 import * as fs from 'fs';
 import * as path from 'path';
+const SYSTEM_INSTRUCTIONS = `
+# AI Context MCP Server - Usage Instructions
+
+## Overview
+This MCP server provides dynamic access to project-specific AI agents, guidelines, and frameworks from the .ai-context folder.
+
+## Discovery-First Approach
+
+### Step 1: Discover Available Resources
+Always start by understanding what's available:
+- Use 'list_all_resources' to see all agents, guidelines, and frameworks
+- Review tool descriptions to understand each agent's purpose
+- Never assume specific agents exist
+
+### Step 2: Match Needs to Available Tools
+Each load_* tool includes metadata describing:
+- The agent's expertise and specialization
+- When to use it (use cases)
+- What capabilities it provides
+
+### Step 3: Load Strategically
+- Single agent: When one agent's description matches the task perfectly
+- Multiple agents: When the task spans multiple domains
+- Sequential loading: Start with most relevant, add others as needed
+
+## Best Practices
+
+DO:
+- Check what's available before making assumptions
+- Read tool descriptions to understand agent purposes
+- Explain your selection reasoning to users
+- Adapt to available resources rather than expecting specific ones
+- Combine complementary agents when beneficial
+
+DON'T:
+- Assume specific agents exist in any project
+- Load agents without checking their descriptions
+- Keep more than 3-4 agents loaded simultaneously
+- Guess agent purposes - use the metadata provided
+
+## Communication Pattern
+
+When loading agents, be transparent:
+"Let me check what specialized agents are available..."
+[Check tools/resources]
+"I found an agent described as [description]. This matches your need for [task]."
+[Load appropriate agent]
+
+## Tool Naming Convention
+- load_[name]_agent - Loads specific agents
+- load_guideline_[name] - Loads development guidelines
+- load_framework_[name] - Loads architectural frameworks
+- list_all_resources - Lists everything available
+- load_multiple_resources - Loads multiple resources at once
+
+Remember: Every project has different agents. Always discover what's available and match descriptions to needs rather than assuming specific agents exist.
+`;
 class AiContextMCPServer {
     server;
     rootPath;
@@ -14,7 +71,6 @@ class AiContextMCPServer {
     guidelinesMetadata = new Map();
     frameworksMetadata = new Map();
     dynamicTools = [];
-    dynamicResources = [];
     loader; // Will be initialized after metadata is loaded
     guidelineToolMapping = new Map(); // Maps tool name to full path
     agentToolMapping = new Map(); // Maps tool name to agent name
@@ -26,7 +82,6 @@ class AiContextMCPServer {
             version: '1.0.0'
         }, {
             capabilities: {
-                resources: {},
                 tools: {}
             }
         });
@@ -68,14 +123,13 @@ class AiContextMCPServer {
         this.frameworksMetadata = await scanner.scanFrameworksWithMetadata();
         // Initialize loader AFTER metadata is populated
         this.loader = new Loader(this.agentsMetadata, this.guidelinesMetadata, this.frameworksMetadata);
-        // Generate dynamic tools and resources for each resource
+        // Generate dynamic tools for each resource
         this.generateDynamicTools();
-        this.generateDynamicResources();
         console.error(`${LogMessages.FOUND}`);
         console.error(`  - ${this.agentsMetadata.size} agents`);
         console.error(`  - ${this.guidelinesMetadata.size} guidelines`);
         console.error(`  - ${this.frameworksMetadata.size} frameworks`);
-        console.error(`${LogMessages.GENERATED_TOOLS} ${this.dynamicTools.length} tools and ${this.dynamicResources.length} resources total`);
+        console.error(`${LogMessages.GENERATED_TOOLS} ${this.dynamicTools.length} tools total`);
         this.setupHandlers();
     }
     generateDynamicTools() {
@@ -141,95 +195,27 @@ class AiContextMCPServer {
             });
         }
     }
-    generateDynamicResources() {
-        // Generate resources for agents
-        for (const [agentName, metadata] of this.agentsMetadata) {
-            const resourceUri = `agent://${agentName}`;
-            this.dynamicResources.push({
-                uri: resourceUri,
-                name: agentName.replace(/-agent$/, ''), // Remove -agent suffix for cleaner names
-                description: metadata.description,
-                mimeType: 'text/plain'
-            });
-        }
-        // Generate resources for guidelines
-        for (const [guidelinePath, metadata] of this.guidelinesMetadata) {
-            const resourceUri = `guideline://${guidelinePath}`;
-            this.dynamicResources.push({
-                uri: resourceUri,
-                name: guidelinePath.split('/').pop() || guidelinePath,
-                description: metadata.description,
-                mimeType: 'text/plain'
-            });
-        }
-        // Generate resources for frameworks
-        for (const [frameworkName, metadata] of this.frameworksMetadata) {
-            const resourceUri = `framework://${frameworkName}`;
-            this.dynamicResources.push({
-                uri: resourceUri,
-                name: frameworkName,
-                description: metadata.description,
-                mimeType: 'text/plain'
-            });
-        }
-    }
     setupHandlers() {
+        // Register initialize handler with instructions
+        this.server.setRequestHandler(InitializeRequestSchema, async () => {
+            return {
+                protocolVersion: "2024-11-05",
+                capabilities: {
+                    tools: {}
+                },
+                serverInfo: {
+                    name: "ai-context-mcp",
+                    version: "1.0.0",
+                    instructions: SYSTEM_INSTRUCTIONS
+                }
+            };
+        });
         // Register all tools (dynamic + static)
         this.server.setRequestHandler(ListToolsRequestSchema, async () => {
             const staticTools = this.getStaticTools();
             return {
                 tools: [...this.dynamicTools, ...staticTools]
             };
-        });
-        // Register resource handlers
-        this.server.setRequestHandler(ListResourcesRequestSchema, async () => {
-            return {
-                resources: this.dynamicResources
-            };
-        });
-        // Handle resource reading
-        this.server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
-            const { uri } = request.params;
-            try {
-                // Parse the URI to determine the resource type
-                if (uri.startsWith('agent://')) {
-                    const agentName = uri.replace('agent://', '');
-                    const content = await this.loader.loadAgent(agentName);
-                    return {
-                        contents: [{
-                                uri,
-                                mimeType: 'text/plain',
-                                text: content
-                            }]
-                    };
-                }
-                if (uri.startsWith('guideline://')) {
-                    const guidelinePath = uri.replace('guideline://', '');
-                    const content = await this.loader.loadGuideline(guidelinePath);
-                    return {
-                        contents: [{
-                                uri,
-                                mimeType: 'text/plain',
-                                text: content
-                            }]
-                    };
-                }
-                if (uri.startsWith('framework://')) {
-                    const frameworkName = uri.replace('framework://', '');
-                    const content = await this.loader.loadFramework(frameworkName);
-                    return {
-                        contents: [{
-                                uri,
-                                mimeType: 'text/plain',
-                                text: content
-                            }]
-                    };
-                }
-                throw new Error(`Unknown resource URI: ${uri}`);
-            }
-            catch (error) {
-                throw new Error(`Failed to read resource: ${error.message}`);
-            }
         });
         // Handle tool execution
         this.server.setRequestHandler(CallToolRequestSchema, async (request) => {
@@ -412,26 +398,16 @@ class AiContextMCPServer {
             const transport = new StdioServerTransport();
             await this.server.connect(transport);
             console.error(LogMessages.SERVER_READY);
-            // Show resources sample
-            console.error(`[AI-Context MCP] Available as ${this.dynamicResources.length} resources and ${this.dynamicTools.length} tools`);
-            console.error('Sample resources:');
-            const agentResources = this.dynamicResources.filter(r => r.uri.startsWith('agent://')).slice(0, 3);
-            const guidelineResources = this.dynamicResources.filter(r => r.uri.startsWith('guideline://')).slice(0, 3);
-            const frameworkResources = this.dynamicResources.filter(r => r.uri.startsWith('framework://')).slice(0, 3);
-            [...agentResources, ...guidelineResources, ...frameworkResources].forEach(resource => {
-                console.error(`  - ${resource.name} (${resource.uri})`);
-            });
-            if (this.dynamicResources.length > 9) {
-                console.error(`  ... and ${this.dynamicResources.length - 9} more resources`);
-            }
-            // Also show sample tools with new naming
-            console.error('\nSample tools (backward compatibility):');
-            const agentTools = this.dynamicTools.filter(t => t.name.startsWith(ToolPrefixes.AGENT)).slice(0, 2);
-            agentTools.forEach(tool => {
+            console.error(LogMessages.SAMPLE_TOOLS);
+            // Show sample tools with new naming
+            const agentTools = this.dynamicTools.filter(t => t.name.startsWith(ToolPrefixes.AGENT)).slice(0, 3);
+            const guidelineTools = this.dynamicTools.filter(t => t.name.startsWith(ToolPrefixes.GUIDELINE)).slice(0, 3);
+            const frameworkTools = this.dynamicTools.filter(t => t.name.startsWith(ToolPrefixes.FRAMEWORK)).slice(0, 3);
+            [...agentTools, ...guidelineTools, ...frameworkTools].forEach(tool => {
                 console.error(`  - ${tool.name}`);
             });
-            if (this.dynamicTools.length > 2) {
-                console.error(`  ... and ${this.dynamicTools.length - 2} more tools`);
+            if (this.dynamicTools.length > 9) {
+                console.error(`  ... and ${this.dynamicTools.length - 9} more tools`);
             }
         }
         catch (error) {

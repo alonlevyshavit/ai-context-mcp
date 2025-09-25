@@ -44,12 +44,22 @@ The server will:
 
 ## How It Works
 
+### Discovery-First Approach
+
+The server embeds system instructions that guide AI assistants to:
+1. **Discover available resources** first using `list_all_resources`
+2. **Read tool descriptions** to understand each resource's purpose
+3. **Select appropriate tools** based on the task at hand
+4. **Load resources strategically** - single or multiple as needed
+
+This ensures AI assistants adapt to your specific `.ai-context` structure rather than assuming certain agents exist.
+
 ### Dynamic Tool Generation
 
 The server automatically scans your `.ai-context` folder and creates specific MCP tools for each resource:
 
 ```
-.ai-context/agents/planner.md → load_agent_planner tool
+.ai-context/agents/planner.md → load_planner_agent tool
 .ai-context/guidelines/api-design.md → load_guideline_api_design tool
 .ai-context/frameworks/memory/README.md → load_framework_memory tool
 ```
@@ -139,7 +149,7 @@ your-project/
 The server provides both **dynamic** and **static** tools:
 
 ### Dynamic Tools (Generated from Content)
-- `load_agent_[name]` - Load a specific agent with its context
+- `load_[name]_agent` - Load a specific agent (e.g., `load_debugger_agent`, `load_planner_agent`)
 - `load_guideline_[path]` - Load a specific guideline
 - `load_framework_[name]` - Load a framework's documentation
 

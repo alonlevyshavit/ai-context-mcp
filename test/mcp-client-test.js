@@ -47,55 +47,8 @@ async function runTests() {
     await client.connect(transport);
     console.log('✓ Connected to MCP server\n');
 
-    // Test 1: List Resources
-    console.log('Test 1: List Resources');
-    try {
-      const resources = await client.listResources();
-      console.log(`  ✓ Found ${resources.resources.length} resources`);
-
-      const agentCount = resources.resources.filter(r => r.uri.startsWith('agent://')).length;
-      const guidelineCount = resources.resources.filter(r => r.uri.startsWith('guideline://')).length;
-      const frameworkCount = resources.resources.filter(r => r.uri.startsWith('framework://')).length;
-
-      console.log(`    - ${agentCount} agents`);
-      console.log(`    - ${guidelineCount} guidelines`);
-      console.log(`    - ${frameworkCount} frameworks`);
-      results.push({ test: 'List Resources', passed: true });
-    } catch (error) {
-      console.log(`  ✗ Failed: ${error.message}`);
-      results.push({ test: 'List Resources', passed: false, error: error.message });
-      allTestsPassed = false;
-    }
-
-    // Test 2: Read Agent Resource
-    console.log('\nTest 2: Read Agent Resource');
-    try {
-      const result = await client.readResource({ uri: 'agent://debugger-agent' });
-      const content = result.contents[0].text;
-
-      // Try to verify against actual file if it exists
-      try {
-        const actualPath = path.join(AI_CONTEXT_ROOT, 'agents/development/debugger-agent.md');
-        const actualContent = await fs.readFile(actualPath, 'utf-8');
-
-        if (content === actualContent) {
-          console.log('  ✓ Content matches file exactly');
-        } else {
-          console.log('  ⚠ Content length:', content.length, 'vs', actualContent.length);
-        }
-      } catch {
-        console.log('  ✓ Resource loaded (file verification skipped)');
-      }
-
-      results.push({ test: 'Read Agent Resource', passed: true });
-    } catch (error) {
-      console.log(`  ✗ Failed: ${error.message}`);
-      results.push({ test: 'Read Agent Resource', passed: false, error: error.message });
-      allTestsPassed = false;
-    }
-
-    // Test 3: List Tools
-    console.log('\nTest 3: List Tools (New Naming)');
+    // Test 1: List Tools
+    console.log('Test 1: List Tools (New Naming)');
     try {
       const tools = await client.listTools();
       console.log(`  ✓ Found ${tools.tools.length} tools`);
@@ -117,8 +70,8 @@ async function runTests() {
       allTestsPassed = false;
     }
 
-    // Test 4: Call Tool
-    console.log('\nTest 4: Call Agent Tool');
+    // Test 2: Call Tool
+    console.log('\nTest 2: Call Agent Tool');
     try {
       const result = await client.callTool({
         name: 'load_debugger_agent',
@@ -139,8 +92,8 @@ async function runTests() {
       allTestsPassed = false;
     }
 
-    // Test 5: Static Tools
-    console.log('\nTest 5: Static Tools');
+    // Test 3: Static Tools
+    console.log('\nTest 3: Static Tools');
     try {
       // Test list_all_resources
       const listResult = await client.callTool({

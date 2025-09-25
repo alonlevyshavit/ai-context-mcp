@@ -118,7 +118,7 @@ describe('AiContextMCPServer', () => {
     });
 
     it('should have correct tool prefixes', () => {
-      expect(ToolPrefixes.AGENT).toBe('load_agent_');
+      expect(ToolPrefixes.AGENT).toBe('load_');
       expect(ToolPrefixes.GUIDELINE).toBe('load_guideline_');
       expect(ToolPrefixes.FRAMEWORK).toBe('load_framework_');
     });
@@ -135,8 +135,8 @@ describe('AiContextMCPServer', () => {
       const expectedToolName = `${ToolPrefixes.AGENT}test_agent`;
 
       // This tests the tool name generation logic
-      const toolName = `${ToolPrefixes.AGENT}${agentName.replace(/-/g, '_')}`;
-      expect(toolName).toBe(expectedToolName);
+      const toolName = `${ToolPrefixes.AGENT}${agentName.replace(/-/g, '_')}_agent`;
+      expect(toolName).toBe(expectedToolName + '_agent');
     });
 
     it('should generate guideline tools with path-based names', () => {
@@ -165,10 +165,10 @@ describe('AiContextMCPServer', () => {
 
     it('should handle agent tool calls correctly', async () => {
       const toolName = `${ToolPrefixes.AGENT}test_agent`;
-      const expectedAgentName = 'test-agent';
+      const expectedAgentName = 'test_agent';
 
-      // Simulate tool name parsing
-      const agentName = toolName.replace(ToolPrefixes.AGENT, '').replace(/_/g, '-');
+      // Simulate tool name parsing (agent tools end with _agent, we just strip the prefix)
+      const agentName = toolName.replace(ToolPrefixes.AGENT, '');
       expect(agentName).toBe(expectedAgentName);
     });
 
