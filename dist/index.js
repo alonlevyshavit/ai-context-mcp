@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import { InitializeRequestSchema, ListToolsRequestSchema, CallToolRequestSchema, ListResourcesRequestSchema, ReadResourceRequestSchema } from '@modelcontextprotocol/sdk/types.js';
+import { InitializeRequestSchema, ListToolsRequestSchema, CallToolRequestSchema, ListResourcesRequestSchema, ReadResourceRequestSchema, ListPromptsRequestSchema, GetPromptRequestSchema } from '@modelcontextprotocol/sdk/types.js';
 import { Scanner } from './scanner.js';
 import { Loader } from './loader.js';
 import { ToolPrefixes, StaticToolNames, LogMessages } from './types.js';
@@ -83,7 +83,8 @@ class AiContextMCPServer {
         }, {
             capabilities: {
                 tools: {},
-                resources: {}
+                resources: {},
+                prompts: {}
             }
         });
         // Loader will be initialized after metadata is populated
@@ -130,7 +131,7 @@ class AiContextMCPServer {
         console.error(`  - ${this.agentsMetadata.size} agents`);
         console.error(`  - ${this.guidelinesMetadata.size} guidelines`);
         console.error(`  - ${this.frameworksMetadata.size} frameworks`);
-        console.error(`${LogMessages.GENERATED_TOOLS} ${this.dynamicTools.length} tools and 1 resource (system instructions)`);
+        console.error(`${LogMessages.GENERATED_TOOLS} ${this.dynamicTools.length} tools, 1 resource, and 1 prompt`);
         this.setupHandlers();
     }
     generateDynamicTools() {
@@ -203,7 +204,8 @@ class AiContextMCPServer {
                 protocolVersion: "2024-11-05",
                 capabilities: {
                     tools: {},
-                    resources: {}
+                    resources: {},
+                    prompts: {}
                 },
                 serverInfo: {
                     name: "ai-context-mcp",
@@ -292,6 +294,42 @@ class AiContextMCPServer {
                 };
             }
             throw new Error(`Unknown resource: ${uri}`);
+        });
+        // Register prompt handlers
+        this.server.setRequestHandler(ListPromptsRequestSchema, async () => {
+            return {
+                prompts: [
+                    {
+                        name: 'how-to-use-ai-context',
+                        description: 'Learn how to use the AI Context MCP server with a discovery-first approach',
+                        arguments: []
+                    }
+                ]
+            };
+        });
+        this.server.setRequestHandler(GetPromptRequestSchema, async (request) => {
+            const { name } = request.params;
+            if (name === 'how-to-use-ai-context') {
+                return {
+                    messages: [
+                        {
+                            role: 'user',
+                            content: {
+                                type: 'text',
+                                text: 'How should I use the AI Context MCP server to work with agents, guidelines, and frameworks?'
+                            }
+                        },
+                        {
+                            role: 'assistant',
+                            content: {
+                                type: 'text',
+                                text: SYSTEM_INSTRUCTIONS
+                            }
+                        }
+                    ]
+                };
+            }
+            throw new Error(`Unknown prompt: ${name}`);
         });
     }
     getStaticTools() {
