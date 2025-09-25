@@ -4,7 +4,9 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import {
   InitializeRequestSchema,
   ListToolsRequestSchema,
-  CallToolRequestSchema
+  CallToolRequestSchema,
+  ListResourcesRequestSchema,
+  ReadResourceRequestSchema
 } from '@modelcontextprotocol/sdk/types.js';
 import { Scanner } from './scanner.js';
 import { Loader } from './loader.js';
@@ -100,7 +102,8 @@ class AiContextMCPServer {
       },
       {
         capabilities: {
-          tools: {}
+          tools: {},
+          resources: {}
         }
       }
     );
@@ -166,7 +169,7 @@ class AiContextMCPServer {
     console.error(`  - ${this.agentsMetadata.size} agents`);
     console.error(`  - ${this.guidelinesMetadata.size} guidelines`);
     console.error(`  - ${this.frameworksMetadata.size} frameworks`);
-    console.error(`${LogMessages.GENERATED_TOOLS} ${this.dynamicTools.length} tools total`);
+    console.error(`${LogMessages.GENERATED_TOOLS} ${this.dynamicTools.length} tools and 1 resource (system instructions)`);
 
     this.setupHandlers();
   }
@@ -254,7 +257,8 @@ class AiContextMCPServer {
       return {
         protocolVersion: "2024-11-05",
         capabilities: {
-          tools: {}
+          tools: {},
+          resources: {}
         },
         serverInfo: {
           name: "ai-context-mcp",
@@ -325,6 +329,36 @@ class AiContextMCPServer {
       } catch (error) {
         return this.formatError((error as Error).message);
       }
+    });
+
+    // Register resource handlers
+    this.server.setRequestHandler(ListResourcesRequestSchema, async () => {
+      return {
+        resources: [
+          {
+            uri: 'instructions://system',
+            name: 'System Instructions',
+            description: 'The discovery-first instructions that guide AI assistants on how to use this MCP server',
+            mimeType: 'text/plain'
+          }
+        ]
+      };
+    });
+
+    this.server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
+      const { uri } = request.params;
+
+      if (uri === 'instructions://system') {
+        return {
+          contents: [{
+            uri: 'instructions://system',
+            mimeType: 'text/plain',
+            text: SYSTEM_INSTRUCTIONS
+          }]
+        };
+      }
+
+      throw new Error(`Unknown resource: ${uri}`);
     });
   }
 
