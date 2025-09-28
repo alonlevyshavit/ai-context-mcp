@@ -175,7 +175,12 @@ The server provides both **dynamic** and **static** tools:
 ```
 
 ### Selective Resource Loading
-Control which types of resources are loaded as tools by setting environment variables. By default, all resource types are enabled.
+Control which types of resources are loaded as tools by setting environment variables.
+
+**Default behavior:**
+- **Agents**: Always loaded (cannot be disabled)
+- **Guidelines**: Disabled by default (opt-in with `AI_CONTEXT_LOAD_GUIDELINES="true"`)
+- **Frameworks**: Disabled by default (opt-in with `AI_CONTEXT_LOAD_FRAMEWORKS="true"`)
 
 ```json
 {
@@ -184,10 +189,9 @@ Control which types of resources are loaded as tools by setting environment vari
       "command": "npx",
       "args": ["--yes", "github:alonlevyshavit/ai-context-mcp"],
       "env": {
-        "AI_CONTEXT_ROOT": "/absolute/path/to/.ai-context",
-        "AI_CONTEXT_LOAD_AGENTS": "true",     // Set to "false" to disable agents
-        "AI_CONTEXT_LOAD_GUIDELINES": "true",  // Set to "false" to disable guidelines
-        "AI_CONTEXT_LOAD_FRAMEWORKS": "true"   // Set to "false" to disable frameworks
+        "AI_CONTEXT_ROOT": "/absolute/path/to/.ai-context"
+        // Agents are always loaded
+        // Guidelines and frameworks are disabled by default
       }
     }
   }
@@ -196,21 +200,25 @@ Control which types of resources are loaded as tools by setting environment vari
 
 **Examples:**
 
-Load only agents (disable guidelines and frameworks):
+Load agents only (default behavior):
 ```json
 "env": {
-  "AI_CONTEXT_ROOT": "/absolute/path/to/.ai-context",
-  "AI_CONTEXT_LOAD_AGENTS": "true",
-  "AI_CONTEXT_LOAD_GUIDELINES": "false",
-  "AI_CONTEXT_LOAD_FRAMEWORKS": "false"
+  "AI_CONTEXT_ROOT": "/absolute/path/to/.ai-context"
 }
 ```
 
-Load only guidelines and frameworks (disable agents):
+Load agents and guidelines:
 ```json
 "env": {
   "AI_CONTEXT_ROOT": "/absolute/path/to/.ai-context",
-  "AI_CONTEXT_LOAD_AGENTS": "false",
+  "AI_CONTEXT_LOAD_GUIDELINES": "true"
+}
+```
+
+Load all resources (agents, guidelines, and frameworks):
+```json
+"env": {
+  "AI_CONTEXT_ROOT": "/absolute/path/to/.ai-context",
   "AI_CONTEXT_LOAD_GUIDELINES": "true",
   "AI_CONTEXT_LOAD_FRAMEWORKS": "true"
 }

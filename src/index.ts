@@ -154,10 +154,10 @@ class AiContextMCPServer {
     const scanner = new Scanner(this.rootPath);
 
     // Check configuration for which resource types to load
-    // Default to true if not specified (backward compatibility)
-    const loadAgents = process.env.AI_CONTEXT_LOAD_AGENTS !== 'false';
-    const loadGuidelines = process.env.AI_CONTEXT_LOAD_GUIDELINES !== 'false';
-    const loadFrameworks = process.env.AI_CONTEXT_LOAD_FRAMEWORKS !== 'false';
+    // Agents always load, guidelines and frameworks are opt-in (default: false)
+    const loadAgents = true; // Always load agents
+    const loadGuidelines = process.env.AI_CONTEXT_LOAD_GUIDELINES === 'true';
+    const loadFrameworks = process.env.AI_CONTEXT_LOAD_FRAMEWORKS === 'true';
 
     // Log configuration
     if (!loadAgents || !loadGuidelines || !loadFrameworks) {
