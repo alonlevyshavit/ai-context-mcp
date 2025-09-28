@@ -160,13 +160,14 @@ class AiContextMCPServer {
     const scanner = new Scanner(this.rootPath, this.security);
 
     // Check configuration for which resource types to load
-    // Agents always load, guidelines and frameworks are opt-in (default: false)
+    // Agents always load, guidelines and frameworks areopt-in (default: false)
     const loadAgents = true; // Always load agents
     const loadGuidelines = process.env.AI_CONTEXT_LOAD_GUIDELINES === 'true';
     const loadFrameworks = process.env.AI_CONTEXT_LOAD_FRAMEWORKS === 'true';
 
     // Log configuration
     if (!loadAgents || !loadGuidelines || !loadFrameworks) {
+      console.error('process.cwd:', process.cwd());
       console.error('[AI-Context MCP] Resource loading configuration:');
       console.error(`  - Agents: ${loadAgents ? 'enabled' : 'disabled'}`);
       console.error(`  - Guidelines: ${loadGuidelines ? 'enabled' : 'disabled'}`);
