@@ -174,6 +174,48 @@ The server provides both **dynamic** and **static** tools:
 }
 ```
 
+### Selective Resource Loading
+Control which types of resources are loaded as tools by setting environment variables. By default, all resource types are enabled.
+
+```json
+{
+  "mcpServers": {
+    "ai-context": {
+      "command": "npx",
+      "args": ["--yes", "github:alonlevyshavit/ai-context-mcp"],
+      "env": {
+        "AI_CONTEXT_ROOT": "/absolute/path/to/.ai-context",
+        "AI_CONTEXT_LOAD_AGENTS": "true",     // Set to "false" to disable agents
+        "AI_CONTEXT_LOAD_GUIDELINES": "true",  // Set to "false" to disable guidelines
+        "AI_CONTEXT_LOAD_FRAMEWORKS": "true"   // Set to "false" to disable frameworks
+      }
+    }
+  }
+}
+```
+
+**Examples:**
+
+Load only agents (disable guidelines and frameworks):
+```json
+"env": {
+  "AI_CONTEXT_ROOT": "/absolute/path/to/.ai-context",
+  "AI_CONTEXT_LOAD_AGENTS": "true",
+  "AI_CONTEXT_LOAD_GUIDELINES": "false",
+  "AI_CONTEXT_LOAD_FRAMEWORKS": "false"
+}
+```
+
+Load only guidelines and frameworks (disable agents):
+```json
+"env": {
+  "AI_CONTEXT_ROOT": "/absolute/path/to/.ai-context",
+  "AI_CONTEXT_LOAD_AGENTS": "false",
+  "AI_CONTEXT_LOAD_GUIDELINES": "true",
+  "AI_CONTEXT_LOAD_FRAMEWORKS": "true"
+}
+```
+
 ### Specific Version/Branch
 ```json
 {

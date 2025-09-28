@@ -153,10 +153,32 @@ class AiContextMCPServer {
 
     const scanner = new Scanner(this.rootPath);
 
-    // Scan all resources with metadata extraction
-    this.agentsMetadata = await scanner.scanAgentsWithMetadata();
-    this.guidelinesMetadata = await scanner.scanGuidelinesWithMetadata();
-    this.frameworksMetadata = await scanner.scanFrameworksWithMetadata();
+    // Check configuration for which resource types to load
+    // Default to true if not specified (backward compatibility)
+    const loadAgents = process.env.AI_CONTEXT_LOAD_AGENTS !== 'false';
+    const loadGuidelines = process.env.AI_CONTEXT_LOAD_GUIDELINES !== 'false';
+    const loadFrameworks = process.env.AI_CONTEXT_LOAD_FRAMEWORKS !== 'false';
+
+    // Log configuration
+    if (!loadAgents || !loadGuidelines || !loadFrameworks) {
+      console.error('[AI-Context MCP] Resource loading configuration:');
+      console.error(`  - Agents: ${loadAgents ? 'enabled' : 'disabled'}`);
+      console.error(`  - Guidelines: ${loadGuidelines ? 'enabled' : 'disabled'}`);
+      console.error(`  - Frameworks: ${loadFrameworks ? 'enabled' : 'disabled'}`);
+    }
+
+    // Scan resources based on configuration
+    this.agentsMetadata = loadAgents
+      ? await scanner.scanAgentsWithMetadata()
+      : new Map();
+
+    this.guidelinesMetadata = loadGuidelines
+      ? await scanner.scanGuidelinesWithMetadata()
+      : new Map();
+
+    this.frameworksMetadata = loadFrameworks
+      ? await scanner.scanFrameworksWithMetadata()
+      : new Map();
 
     // Initialize loader AFTER metadata is populated
     this.loader = new Loader(
