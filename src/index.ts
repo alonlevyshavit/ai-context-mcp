@@ -21,6 +21,7 @@ import {
   StaticToolNames,
   LogMessages
 } from './types.js';
+import { initializeSecurity, SecurityValidator } from './security.js';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -85,6 +86,7 @@ Remember: Every project has different agents. Always discover what's available a
 class AiContextMCPServer {
   private readonly server: Server;
   private readonly rootPath: string;
+  private readonly security: SecurityValidator;
   private agentsMetadata: Map<string, AgentMetadata> = new Map();
   private guidelinesMetadata: Map<string, GuidelineMetadata> = new Map();
   private frameworksMetadata: Map<string, FrameworkMetadata> = new Map();
@@ -96,6 +98,9 @@ class AiContextMCPServer {
 
   constructor() {
     this.rootPath = this.findAiContextRoot();
+
+    // Initialize security validator with the root path
+    this.security = initializeSecurity(this.rootPath);
 
     this.server = new Server(
       {
@@ -148,10 +153,11 @@ class AiContextMCPServer {
   }
 
   private async initialize(): Promise<void> {
+    console.error('process.cwd:', process.cwd());
     console.error(`${LogMessages.USING_AI_CONTEXT} ${this.rootPath}`);
     console.error(LogMessages.SCANNING_RESOURCES);
 
-    const scanner = new Scanner(this.rootPath);
+    const scanner = new Scanner(this.rootPath, this.security);
 
     // Check configuration for which resource types to load
     // Agents always load, guidelines and frameworks are opt-in (default: false)
@@ -184,7 +190,8 @@ class AiContextMCPServer {
     this.loader = new Loader(
       this.agentsMetadata,
       this.guidelinesMetadata,
-      this.frameworksMetadata
+      this.frameworksMetadata,
+      this.security
     );
 
     // Generate dynamic tools for each resource

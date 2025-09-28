@@ -5,6 +5,7 @@ import { InitializeRequestSchema, ListToolsRequestSchema, CallToolRequestSchema,
 import { Scanner } from './scanner.js';
 import { Loader } from './loader.js';
 import { ToolPrefixes, StaticToolNames, LogMessages } from './types.js';
+import { initializeSecurity } from './security.js';
 import * as fs from 'fs';
 import * as path from 'path';
 const SYSTEM_INSTRUCTIONS = `
@@ -67,6 +68,7 @@ Remember: Every project has different agents. Always discover what's available a
 class AiContextMCPServer {
     server;
     rootPath;
+    security;
     agentsMetadata = new Map();
     guidelinesMetadata = new Map();
     frameworksMetadata = new Map();
@@ -77,6 +79,8 @@ class AiContextMCPServer {
     frameworkToolMapping = new Map(); // Maps tool name to framework name
     constructor() {
         this.rootPath = this.findAiContextRoot();
+        // Initialize security validator with the root path
+        this.security = initializeSecurity(this.rootPath);
         this.server = new Server({
             name: 'ai-context-mcp',
             version: '1.0.0'
@@ -118,7 +122,7 @@ class AiContextMCPServer {
     async initialize() {
         console.error(`${LogMessages.USING_AI_CONTEXT} ${this.rootPath}`);
         console.error(LogMessages.SCANNING_RESOURCES);
-        const scanner = new Scanner(this.rootPath);
+        const scanner = new Scanner(this.rootPath, this.security);
         // Check configuration for which resource types to load
         // Agents always load, guidelines and frameworks are opt-in (default: false)
         const loadAgents = true; // Always load agents
@@ -142,7 +146,7 @@ class AiContextMCPServer {
             ? await scanner.scanFrameworksWithMetadata()
             : new Map();
         // Initialize loader AFTER metadata is populated
-        this.loader = new Loader(this.agentsMetadata, this.guidelinesMetadata, this.frameworksMetadata);
+        this.loader = new Loader(this.agentsMetadata, this.guidelinesMetadata, this.frameworksMetadata, this.security);
         // Generate dynamic tools for each resource
         this.generateDynamicTools();
         console.error(`${LogMessages.FOUND}`);

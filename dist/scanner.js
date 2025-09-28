@@ -1,36 +1,43 @@
-import * as fs from 'fs/promises';
 import * as path from 'path';
 import { DirectoryNames, FileExtensions, LogMessages } from './types.js';
 import { extractMetadata } from './metadata-extractor.js';
 export class Scanner {
-    rootPath;
-    constructor(rootPath) {
-        this.rootPath = rootPath;
+    security;
+    constructor(_rootPath, security) {
+        this.security = security;
     }
     async scanAgentsWithMetadata() {
-        const agentsDir = path.join(this.rootPath, DirectoryNames.AGENTS);
+        const agentsRelativePath = DirectoryNames.AGENTS;
         const agentsMap = new Map();
-        const scan = async (dir) => {
+        const scan = async (relativePath) => {
             try {
-                const entries = await fs.readdir(dir, { withFileTypes: true });
-                for (const entry of entries) {
-                    const fullPath = path.join(dir, entry.name);
-                    if (entry.isDirectory()) {
-                        await scan(fullPath);
+                // Validate directory access using security validator
+                if (!this.security.isDirectoryAccessible(relativePath)) {
+                    return;
+                }
+                const entries = this.security.safeListDirectory(relativePath);
+                for (const entryName of entries) {
+                    const entryRelativePath = path.join(relativePath, entryName);
+                    // Check if it's a directory first
+                    if (this.security.isDirectoryAccessible(entryRelativePath)) {
+                        await scan(entryRelativePath);
                     }
-                    else if (entry.isFile() && entry.name.toLowerCase().endsWith(FileExtensions.MARKDOWN)) {
+                    else if (this.security.isFileReadable(entryRelativePath) &&
+                        entryName.toLowerCase().endsWith(FileExtensions.MARKDOWN)) {
                         // Extract agent name from filename
-                        const agentName = entry.name.replace(new RegExp(`\\${FileExtensions.MARKDOWN}$`, 'i'), '');
-                        // Read file and extract metadata
-                        const content = await fs.readFile(fullPath, 'utf-8');
+                        const agentName = entryName.replace(new RegExp(`\\${FileExtensions.MARKDOWN}$`, 'i'), '');
+                        // Read file and extract metadata using security validator
+                        const content = this.security.safeReadFile(entryRelativePath);
                         const extractedMetadata = extractMetadata(content);
                         // Log extraction source for debugging
                         if (extractedMetadata.source === 'paragraph') {
                             console.error(`${LogMessages.USING_PARAGRAPH_EXTRACTION} ${agentName}`);
                         }
+                        // Get the validated absolute path for storage
+                        const validatedPath = this.security.validatePath(entryRelativePath);
                         const metadata = {
                             name: agentName,
-                            path: fullPath,
+                            path: validatedPath,
                             description: extractedMetadata.content,
                             metadataSource: extractedMetadata.source
                         };
@@ -39,28 +46,34 @@ export class Scanner {
                 }
             }
             catch (error) {
-                // Directory might not exist, silently continue
+                // Directory might not exist or access denied, silently continue
             }
         };
-        await scan(agentsDir);
+        await scan(agentsRelativePath);
         return agentsMap;
     }
     async scanGuidelinesWithMetadata() {
-        const guidelinesDir = path.join(this.rootPath, DirectoryNames.GUIDELINES);
+        const guidelinesRelativePath = DirectoryNames.GUIDELINES;
         const guidelinesMap = new Map();
-        const scan = async (dir, basePath) => {
+        const scan = async (currentRelativePath, baseRelativePath) => {
             try {
-                const entries = await fs.readdir(dir, { withFileTypes: true });
-                for (const entry of entries) {
-                    const fullPath = path.join(dir, entry.name);
-                    if (entry.isDirectory()) {
-                        await scan(fullPath, basePath);
+                // Validate directory access using security validator
+                if (!this.security.isDirectoryAccessible(currentRelativePath)) {
+                    return;
+                }
+                const entries = this.security.safeListDirectory(currentRelativePath);
+                for (const entryName of entries) {
+                    const entryRelativePath = path.join(currentRelativePath, entryName);
+                    // Check if it's a directory first
+                    if (this.security.isDirectoryAccessible(entryRelativePath)) {
+                        await scan(entryRelativePath, baseRelativePath);
                     }
-                    else if (entry.isFile() && entry.name.toLowerCase().endsWith(FileExtensions.MARKDOWN)) {
-                        const relativePath = path.relative(basePath, fullPath);
+                    else if (this.security.isFileReadable(entryRelativePath) &&
+                        entryName.toLowerCase().endsWith(FileExtensions.MARKDOWN)) {
+                        const relativePath = path.relative(baseRelativePath, entryRelativePath);
                         const key = relativePath.replace(/\\/g, '/').replace(new RegExp(`\\${FileExtensions.MARKDOWN}$`, 'i'), '');
-                        // Read file and extract metadata
-                        const content = await fs.readFile(fullPath, 'utf-8');
+                        // Read file and extract metadata using security validator
+                        const content = this.security.safeReadFile(entryRelativePath);
                         const extractedMetadata = extractMetadata(content);
                         // Log extraction source for debugging
                         if (extractedMetadata.source === 'paragraph') {
@@ -69,9 +82,11 @@ export class Scanner {
                         // Extract category from path (e.g., "development/api-design" -> "development")
                         const pathParts = key.split('/');
                         const category = pathParts.length > 1 ? pathParts[0] : 'general';
+                        // Get the validated absolute path for storage
+                        const validatedPath = this.security.validatePath(entryRelativePath);
                         const metadata = {
                             name: key,
-                            path: fullPath,
+                            path: validatedPath,
                             category,
                             description: extractedMetadata.content,
                             metadataSource: extractedMetadata.source
@@ -81,50 +96,57 @@ export class Scanner {
                 }
             }
             catch (error) {
-                // Directory might not exist, silently continue
+                // Directory might not exist or access denied, silently continue
             }
         };
-        await scan(guidelinesDir, guidelinesDir);
+        await scan(guidelinesRelativePath, guidelinesRelativePath);
         return guidelinesMap;
     }
     async scanFrameworksWithMetadata() {
-        const frameworksDir = path.join(this.rootPath, DirectoryNames.FRAMEWORKS);
+        const frameworksRelativePath = DirectoryNames.FRAMEWORKS;
         const frameworksMap = new Map();
         try {
-            const entries = await fs.readdir(frameworksDir, { withFileTypes: true });
-            for (const entry of entries) {
-                if (entry.isDirectory()) {
-                    const frameworkPath = path.join(frameworksDir, entry.name);
+            // Validate directory access using security validator
+            if (!this.security.isDirectoryAccessible(frameworksRelativePath)) {
+                return frameworksMap;
+            }
+            const entries = this.security.safeListDirectory(frameworksRelativePath);
+            for (const entryName of entries) {
+                const frameworkRelativePath = path.join(frameworksRelativePath, entryName);
+                if (this.security.isDirectoryAccessible(frameworkRelativePath)) {
                     const readmeFiles = [`README${FileExtensions.MARKDOWN}`, `readme${FileExtensions.MARKDOWN}`, `Readme${FileExtensions.MARKDOWN}`];
                     for (const readmeFile of readmeFiles) {
-                        const readmePath = path.join(frameworkPath, readmeFile);
-                        try {
-                            await fs.access(readmePath);
-                            // Read README and extract metadata
-                            const content = await fs.readFile(readmePath, 'utf-8');
-                            const extractedMetadata = extractMetadata(content);
-                            // Log extraction source for debugging
-                            if (extractedMetadata.source === 'paragraph') {
-                                console.error(`${LogMessages.USING_PARAGRAPH_EXTRACTION} framework ${entry.name}`);
+                        const readmeRelativePath = path.join(frameworkRelativePath, readmeFile);
+                        if (this.security.isFileReadable(readmeRelativePath)) {
+                            try {
+                                // Read README and extract metadata using security validator
+                                const content = this.security.safeReadFile(readmeRelativePath);
+                                const extractedMetadata = extractMetadata(content);
+                                // Log extraction source for debugging
+                                if (extractedMetadata.source === 'paragraph') {
+                                    console.error(`${LogMessages.USING_PARAGRAPH_EXTRACTION} framework ${entryName}`);
+                                }
+                                // Get the validated absolute path for storage
+                                const validatedPath = this.security.validatePath(readmeRelativePath);
+                                const metadata = {
+                                    name: entryName,
+                                    path: validatedPath,
+                                    description: extractedMetadata.content,
+                                    metadataSource: extractedMetadata.source
+                                };
+                                frameworksMap.set(entryName, metadata);
+                                break;
                             }
-                            const metadata = {
-                                name: entry.name,
-                                path: readmePath,
-                                description: extractedMetadata.content,
-                                metadataSource: extractedMetadata.source
-                            };
-                            frameworksMap.set(entry.name, metadata);
-                            break;
-                        }
-                        catch {
-                            // Try next variant
+                            catch {
+                                // Try next variant
+                            }
                         }
                     }
                 }
             }
         }
         catch (error) {
-            // Frameworks directory might not exist, silently continue
+            // Frameworks directory might not exist or access denied, silently continue
         }
         return frameworksMap;
     }

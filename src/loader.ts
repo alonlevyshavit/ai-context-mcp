@@ -1,11 +1,12 @@
-import * as fs from 'fs/promises';
 import { AgentMetadata, GuidelineMetadata, FrameworkMetadata } from './types.js';
+import { SecurityValidator } from './security.js';
 
 export class Loader {
   constructor(
     private readonly agentsMetadata: Map<string, AgentMetadata>,
     private readonly guidelinesMetadata: Map<string, GuidelineMetadata>,
-    private readonly frameworksMetadata: Map<string, FrameworkMetadata>
+    private readonly frameworksMetadata: Map<string, FrameworkMetadata>,
+    private readonly security: SecurityValidator
   ) {}
 
   public async loadAgent(agentName: string): Promise<string> {
@@ -16,8 +17,13 @@ export class Loader {
       throw new Error(`Agent '${agentName}' not found. Available: ${available}`);
     }
 
-    // Return raw file content, just like guidelines
-    return fs.readFile(metadata.path, 'utf-8');
+    // Use security validator to read file content
+    // Convert absolute path to relative path for security validation
+    const relativePath = metadata.path.startsWith(this.security.getRootPath())
+      ? metadata.path.substring(this.security.getRootPath().length + 1)
+      : metadata.path;
+
+    return this.security.safeReadFile(relativePath);
   }
 
   public async loadGuideline(guidelinePath: string): Promise<string> {
@@ -28,7 +34,13 @@ export class Loader {
       throw new Error(`Guideline '${guidelinePath}' not found. Available: ${available}`);
     }
 
-    return fs.readFile(metadata.path, 'utf-8');
+    // Use security validator to read file content
+    // Convert absolute path to relative path for security validation
+    const relativePath = metadata.path.startsWith(this.security.getRootPath())
+      ? metadata.path.substring(this.security.getRootPath().length + 1)
+      : metadata.path;
+
+    return this.security.safeReadFile(relativePath);
   }
 
   public async loadFramework(frameworkName: string): Promise<string> {
@@ -39,6 +51,12 @@ export class Loader {
       throw new Error(`Framework '${frameworkName}' not found. Available: ${available}`);
     }
 
-    return fs.readFile(metadata.path, 'utf-8');
+    // Use security validator to read file content
+    // Convert absolute path to relative path for security validation
+    const relativePath = metadata.path.startsWith(this.security.getRootPath())
+      ? metadata.path.substring(this.security.getRootPath().length + 1)
+      : metadata.path;
+
+    return this.security.safeReadFile(relativePath);
   }
 }

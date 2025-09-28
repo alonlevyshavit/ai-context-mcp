@@ -8,6 +8,16 @@ const mockReadFile = vi.fn();
 const mockAccess = vi.fn();
 const mockExtractMetadata = vi.fn();
 
+// Mock SecurityValidator
+const mockSecurityValidator = {
+  isDirectoryAccessible: vi.fn(),
+  isFileReadable: vi.fn(),
+  safeListDirectory: vi.fn(),
+  safeReadFile: vi.fn(),
+  validatePath: vi.fn(),
+  getRootPath: vi.fn()
+};
+
 vi.mock('fs/promises', () => ({
   readdir: mockReaddir,
   readFile: mockReadFile,
@@ -16,6 +26,10 @@ vi.mock('fs/promises', () => ({
 
 vi.mock('./metadata-extractor.js', () => ({
   extractMetadata: mockExtractMetadata
+}));
+
+vi.mock('./security.js', () => ({
+  SecurityValidator: vi.fn().mockImplementation(() => mockSecurityValidator)
 }));
 
 // Import after mocking
@@ -27,9 +41,19 @@ describe('Scanner', () => {
   let consoleErrorSpy: any;
 
   beforeEach(() => {
-    scanner = new Scanner(testRootPath);
-    consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    // Reset all mocks
     vi.clearAllMocks();
+
+    // Setup default security validator behavior
+    mockSecurityValidator.isDirectoryAccessible.mockReturnValue(true);
+    mockSecurityValidator.isFileReadable.mockReturnValue(true);
+    mockSecurityValidator.safeListDirectory.mockReturnValue([]);
+    mockSecurityValidator.safeReadFile.mockReturnValue('test content');
+    mockSecurityValidator.validatePath.mockImplementation((p) => path.resolve(testRootPath, p));
+    mockSecurityValidator.getRootPath.mockReturnValue(testRootPath);
+
+    scanner = new Scanner(testRootPath, mockSecurityValidator as any);
+    consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
   });
 
   afterEach(() => {
@@ -38,14 +62,13 @@ describe('Scanner', () => {
 
   describe('scanAgentsWithMetadata', () => {
     it('should scan agents directory and return metadata map', async () => {
-      const mockEntries = [
-        { name: 'agent1.md', isDirectory: () => false, isFile: () => true },
-        { name: 'agent2.md', isDirectory: () => false, isFile: () => true },
-        { name: 'not-md.txt', isDirectory: () => false, isFile: () => true }
-      ];
+      // Setup security validator mocks
+      mockSecurityValidator.isDirectoryAccessible.mockReturnValue(true);
+      mockSecurityValidator.safeListDirectory.mockReturnValue(['agent1.md', 'agent2.md', 'not-md.txt']);
+      mockSecurityValidator.isFileReadable.mockImplementation((path) => path.endsWith('.md'));
+      mockSecurityValidator.safeReadFile.mockReturnValue('test content');
+      mockSecurityValidator.validatePath.mockImplementation((p) => path.resolve(testRootPath, p));
 
-      mockReaddir.mockResolvedValue(mockEntries);
-      mockReadFile.mockResolvedValue('test content');
       mockExtractMetadata.mockReturnValue({
         content: 'Test agent description',
         source: 'yaml'
@@ -53,31 +76,33 @@ describe('Scanner', () => {
 
       const result = await scanner.scanAgentsWithMetadata();
 
-      expect(mockReaddir).toHaveBeenCalledWith(
-        path.join(testRootPath, DirectoryNames.AGENTS),
-        { withFileTypes: true }
-      );
+      expect(mockSecurityValidator.safeListDirectory).toHaveBeenCalledWith(DirectoryNames.AGENTS);
       expect(result.size).toBe(2);
       expect(result.get('agent1')).toEqual({
         name: 'agent1',
-        path: path.join(testRootPath, DirectoryNames.AGENTS, 'agent1.md'),
+        path: path.resolve(testRootPath, DirectoryNames.AGENTS, 'agent1.md'),
         description: 'Test agent description',
         metadataSource: 'yaml'
       });
     });
 
     it('should handle nested directories recursively', async () => {
-      const mockRootEntries = [
-        { name: 'subdir', isDirectory: () => true, isFile: () => false }
-      ];
-      const mockSubEntries = [
-        { name: 'nested-agent.md', isDirectory: () => false, isFile: () => true }
-      ];
+      // Setup security validator mocks for recursive scanning
+      mockSecurityValidator.isDirectoryAccessible.mockImplementation((path) => {
+        return path === DirectoryNames.AGENTS || path.includes('subdir');
+      });
+      mockSecurityValidator.safeListDirectory.mockImplementation((path) => {
+        if (path === DirectoryNames.AGENTS) {
+          return ['subdir'];
+        } else if (path.includes('subdir')) {
+          return ['nested-agent.md'];
+        }
+        return [];
+      });
+      mockSecurityValidator.isFileReadable.mockImplementation((path) => path.endsWith('.md'));
+      mockSecurityValidator.safeReadFile.mockReturnValue('nested content');
+      mockSecurityValidator.validatePath.mockImplementation((p) => path.resolve(testRootPath, p));
 
-      mockReaddir
-        .mockResolvedValueOnce(mockRootEntries)
-        .mockResolvedValueOnce(mockSubEntries);
-      mockReadFile.mockResolvedValue('nested content');
       mockExtractMetadata.mockReturnValue({
         content: 'Nested agent description',
         source: 'html'
@@ -88,7 +113,7 @@ describe('Scanner', () => {
       expect(result.size).toBe(1);
       expect(result.get('nested-agent')).toEqual({
         name: 'nested-agent',
-        path: path.join(testRootPath, DirectoryNames.AGENTS, 'subdir', 'nested-agent.md'),
+        path: path.resolve(testRootPath, DirectoryNames.AGENTS, 'subdir', 'nested-agent.md'),
         description: 'Nested agent description',
         metadataSource: 'html'
       });
